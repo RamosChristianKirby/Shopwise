@@ -1,0 +1,18 @@
+{
+  "name": "mern-ecommerce",
+  "version": "1.1.0",
+  "private": true,
+  "description": "MERN e-commerce store with an admin panel and sales analytics",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node scripts/start.mjs",
+    "dev": "node scripts/dev.mjs",
+    "seed": "node scripts/seed.mjs",
+    "reset": "node scripts/seed.mjs --force",
+    "build": "npm --prefix client run build",
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "connect": "node scripts/connect.mjs"
+  }
+}

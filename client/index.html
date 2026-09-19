@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1216" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Online store" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a78d6'/%3E%3Cpath d='M9 12h14l-1.5 10h-11z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M12.5 12a3.5 3.5 0 0 1 7 0' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E" />
+    <title>Shopwise</title>
+    <script>
+      // Apply the saved light/dark choice before the page paints (no flash).
+      try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+      // Runtime settings (API address etc.). Loaded synchronously so the app can read it at start-up.
+      document.write('<script src="/config.js"><\/script>');
+    </script>
+    <style>
+      /* Shown instantly, before any CSS/JS has loaded */
+      html { color-scheme: light dark; }
+      body { margin: 0; font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Arial, sans-serif; background: #f5f6f8; color: #14171c; }
+      @media (prefers-color-scheme: dark) { html:not([data-theme='light']) body { background: #0f1216; color: #eef1f5; } }
+      html[data-theme='dark'] body { background: #0f1216; color: #eef1f5; }
+      .boot { min-height: 100vh; display: grid; place-items: center; text-align: center; padding: 24px; }
+      .boot-spin { width: 34px; height: 34px; margin: 0 auto 14px; border: 3px solid rgba(128,128,128,.3); border-top-color: #2a78d6; border-radius: 50%; animation: bootspin .8s linear infinite; }
+      @keyframes bootspin { to { transform: rotate(360deg); } }
+      .boot h1 { font-size: 1.3rem; margin: 0 0 8px; }
+      .boot p { margin: 0 auto 10px; max-width: 460px; opacity: .75; line-height: 1.5; }
+      .boot pre { text-align: left; max-width: 640px; margin: 14px auto 0; padding: 12px; border-radius: 8px; background: rgba(128,128,128,.15); overflow: auto; font-size: 12px; white-space: pre-wrap; }
+      .boot button { font: inherit; padding: 9px 18px; border-radius: 8px; border: 0; background: #2a78d6; color: #fff; cursor: pointer; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot" data-boot>
+        <div><div class="boot-spin"></div><p>Loading…</p></div>
+      </div>
+    </div>
+    <noscript>
+      <div class="boot"><div><h1>JavaScript is turned off</h1><p>This shop needs JavaScript to run. Please enable it in your browser settings and reload.</p></div></div>
+    </noscript>
+    <script>
+      // Safety net: if the app has not started after a few seconds, say why instead of showing a blank page.
+      (function () {
+        var errors = [];
+        function note(m) { if (m) errors.push(String(m)); }
+        window.addEventListener('error', function (e) { note(e.message + (e.filename ? '\n  at ' + e.filename + ':' + e.lineno : '')); });
+        window.addEventListener('unhandledrejection', function (e) { note(e.reason && (e.reason.stack || e.reason.message || e.reason)); });
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (!root || !root.querySelector('[data-boot]')) return;
+          root.innerHTML =
+            '<div class="boot"><div><h1>The shop could not start</h1>' +
+            '<p>Please reload the page. If it keeps happening, update your browser (Edge, Chrome, Firefox or Safari) or try a private window. ' +
+            'If you are the developer, make sure the site is started with <b>npm start</b> or <b>npm run dev</b>.</p>' +
+            '<button onclick="location.reload()">Reload</button>' +
+            (errors.length ? '<pre></pre>' : '') + '</div></div>';
+          var pre = root.querySelector('pre');
+          if (pre) pre.textContent = errors.slice(0, 4).join('\n\n');
+        }, 6000);
+      })();
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
