@@ -23,7 +23,9 @@ import { getPaymentInfo } from '../config/settings.js';
 import placeholderSvg from '../utils/placeholder.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const UPLOAD_DIR = path.resolve(__dirname, '../../uploads');
+// On Vercel the app folder is read-only; only /tmp is writable (and it is temporary).
+export const UPLOAD_DIR = process.env.UPLOAD_DIR
+  || (process.env.VERCEL ? '/tmp/uploads' : path.resolve(__dirname, '../../uploads'));
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const upload = multer({
