@@ -6,7 +6,7 @@
  *
  *   API_URL   The address of your API.
  *
- *     'https://shopwise-sigma.vercel.app/'                              (empty) use the API that comes with this project
+ *     ''                              (empty) use the API that comes with this project
  *     'http://localhost:5000/api'     your API on this computer
  *     'https://api.yourshop.com/api'  your API online
  *
@@ -21,7 +21,9 @@
  *   The other settings only change what visitors see.
  */
 window.__APP_CONFIG__ = {
-  API_URL: 'http://localhost:5000/api',
+  // Live backend on Render (address must end in /api).
+  // (Use 'http://localhost:5000/api' only when testing on your own computer.)
+  API_URL: 'https://shopwise-1-fiwm.onrender.com/api',
 
   STORE_NAME: 'Shopwise',
   TAGLINE: 'Everyday essentials, delivered to your door.',
