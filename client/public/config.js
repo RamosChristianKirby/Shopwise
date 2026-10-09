@@ -21,7 +21,7 @@
  *   The other settings only change what visitors see.
  */
 window.__APP_CONFIG__ = {
-  API_URL: 'https://shopwise-sigma.vercel.app/api',
+  API_URL: 'http://localhost:5000/api',
 
   STORE_NAME: 'Shopwise',
   TAGLINE: 'Everyday essentials, delivered to your door.',
