@@ -6,7 +6,7 @@
  *
  *   API_URL   The address of your API.
  *
- *     ''                              (empty) use the API that comes with this project
+ *     'https://shopwise-sigma.vercel.app/'                              (empty) use the API that comes with this project
  *     'http://localhost:5000/api'     your API on this computer
  *     'https://api.yourshop.com/api'  your API online
  *
