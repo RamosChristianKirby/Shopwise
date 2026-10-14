@@ -16,7 +16,10 @@ export default function ProductCard({ product }) {
   return (
     <article className="card product-card">
       <Link to={href} className="product-img" tabIndex={-1} aria-hidden="true">
-        <img src={imgUrl(product.images?.[0])} alt="" loading="lazy" width="400" height="400" />
+        <img src={imgUrl(product.images?.[0])} alt={product.name} loading="lazy" width="400" height="400" className="img-primary" />
+        {product.images?.[1] && (
+          <img src={imgUrl(product.images[1])} alt="" loading="lazy" width="400" height="400" className="img-secondary" />
+        )}
         {onSale && !out && <span className="tag tag-sale">-{off}%</span>}
         {out && <span className="tag tag-out">Sold out</span>}
       </Link>
