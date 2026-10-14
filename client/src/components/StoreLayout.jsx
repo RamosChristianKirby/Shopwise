@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
+import { useWishlist } from '../context/WishlistContext.jsx';
 import { STORE } from '../config.js';
 import { useEscape, useScrollLock } from '../hooks.js';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import Icon from './Icon.jsx';
 import ThemeToggle from './ThemeToggle.jsx';
+import LiveSearch from './LiveSearch.jsx';
+import CartDrawer from './CartDrawer.jsx';
+import WishlistDrawer from './WishlistDrawer.jsx';
 
 export function Brand({ to = '/', onClick, children }) {
   return (
@@ -20,10 +24,10 @@ export function Brand({ to = '/', onClick, children }) {
 
 export default function StoreLayout() {
   const { user, isAdmin, logout } = useAuth();
-  const { count } = useCart();
+  const { count, openDrawer } = useCart();
+  const { count: wishlistCount, openWishlist } = useWishlist();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [q, setQ] = useState('');
   const [menu, setMenu] = useState(false);
 
   useScrollLock(menu);
@@ -32,11 +36,6 @@ export default function StoreLayout() {
     setMenu(false);
   }, [pathname]);
 
-  const submit = (e) => {
-    e.preventDefault();
-    navigate(`/shop${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`);
-    setMenu(false);
-  };
   const doLogout = () => { logout(); setMenu(false); navigate('/'); };
 
   return (
@@ -51,10 +50,8 @@ export default function StoreLayout() {
           </button>
           <Brand />
 
-          <form className="nav-search" onSubmit={submit} role="search">
-            <Icon name="search" size={18} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…" aria-label="Search products" type="search" enterKeyHint="search" />
-          </form>
+          {/* Instant Live Search Autocomplete */}
+          <LiveSearch />
 
           <nav className="nav-links" aria-label="Main">
             <NavLink to="/shop">Shop</NavLink>
@@ -71,14 +68,33 @@ export default function StoreLayout() {
 
           <div className="nav-actions">
             <ThemeToggle />
-            <Link to="/cart" className="icon-btn cart-btn" aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}>
+
+            {/* Wishlist Button with Counter */}
+            <button
+              className="icon-btn wishlist-btn"
+              aria-label={`Saved items, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}`}
+              onClick={openWishlist}
+              title="Saved items"
+            >
+              <Icon name="heart" size={20} className={wishlistCount > 0 ? 'heart-filled' : ''} />
+              {wishlistCount > 0 && <span className="cart-count wishlist-count">{wishlistCount}</span>}
+            </button>
+
+            {/* Cart Button with Slide-over Drawer trigger */}
+            <button
+              className="icon-btn cart-btn"
+              aria-label={`Cart, ${count} item${count === 1 ? '' : 's'}`}
+              onClick={openDrawer}
+              title="Shopping Cart"
+            >
               <Icon name="cart" size={22} />
               {count > 0 && <span className="cart-count">{count > 99 ? '99+' : count}</span>}
-            </Link>
+            </button>
           </div>
         </div>
       </header>
 
+      {/* Mobile Menu Drawer */}
       {menu && (
         <>
           <div className="scrim" onClick={() => setMenu(false)} />
@@ -87,14 +103,20 @@ export default function StoreLayout() {
               <Brand onClick={() => setMenu(false)} />
               <button className="icon-btn" aria-label="Close menu" onClick={() => setMenu(false)}><Icon name="x" size={22} /></button>
             </div>
-            <form className="drawer-search" onSubmit={submit} role="search">
-              <Icon name="search" size={18} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search products…" aria-label="Search products" type="search" />
-            </form>
+
+            <div className="drawer-search-wrap">
+              <LiveSearch id="drawer-search" onSelect={() => setMenu(false)} />
+            </div>
+
             <nav className="drawer-links" aria-label="Menu">
               <NavLink to="/" end><Icon name="store" /> Home</NavLink>
               <NavLink to="/shop"><Icon name="grid" /> Shop</NavLink>
-              <NavLink to="/cart"><Icon name="cart" /> Cart {count > 0 && <span className="cart-count">{count}</span>}</NavLink>
+              <button className="drawer-link-btn" onClick={() => { setMenu(false); openWishlist(); }}>
+                <Icon name="heart" /> Wishlist {wishlistCount > 0 && <span className="cart-count wishlist-count">{wishlistCount}</span>}
+              </button>
+              <button className="drawer-link-btn" onClick={() => { setMenu(false); openDrawer(); }}>
+                <Icon name="cart" /> Cart {count > 0 && <span className="cart-count">{count}</span>}
+              </button>
               {user && <NavLink to="/account"><Icon name="package" /> My orders</NavLink>}
               {isAdmin && <NavLink to="/admin"><Icon name="trend" /> Admin panel</NavLink>}
             </nav>
@@ -115,6 +137,12 @@ export default function StoreLayout() {
         </>
       )}
 
+      {/* Slide-over Mini-Cart Drawer */}
+      <CartDrawer />
+
+      {/* Saved Wishlist Drawer */}
+      <WishlistDrawer />
+
       <main id="content" className="container main">
         <ErrorBoundary key={pathname} inline>
           <Outlet />
@@ -132,7 +160,8 @@ export default function StoreLayout() {
             <ul>
               <li><Link to="/shop">All products</Link></li>
               <li><Link to="/shop?sort=popular">Best sellers</Link></li>
-              <li><Link to="/cart">Your cart</Link></li>
+              <li><button className="link-btn" onClick={openWishlist}>Saved wishlist</button></li>
+              <li><button className="link-btn" onClick={openDrawer}>Your cart</button></li>
             </ul>
           </div>
           <div>

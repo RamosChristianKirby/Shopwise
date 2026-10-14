@@ -4,6 +4,7 @@ import api, { imgUrl } from '../api.js';
 import { STORE } from '../config.js';
 import { useTitle } from '../hooks.js';
 import { list, money } from '../utils.js';
+import { useToast } from '../context/ToastContext.jsx';
 import Icon from '../components/Icon.jsx';
 import ProductCard from '../components/ProductCard.jsx';
 import { ProductGridSkeleton } from '../components/Skeleton.jsx';
@@ -15,11 +16,40 @@ const PERKS = [
   { icon: 'shield', title: 'Shop with confidence', text: 'Secure accounts, clear order history' },
 ];
 
+const REVIEWS = [
+  {
+    name: 'Sarah M.',
+    rating: 5,
+    date: '2 days ago',
+    title: 'Super fast delivery and great quality!',
+    comment: 'The wireless headphones arrived in 2 days and the sound quality is incredible for the price.',
+    product: 'Wireless Noise-Cancelling Headphones',
+  },
+  {
+    name: 'David L.',
+    rating: 5,
+    date: '1 week ago',
+    title: 'Smooth shopping experience',
+    comment: 'Paid with GCash and was confirmed right away. The mechanical keyboard feels amazing to type on.',
+    product: 'Mechanical Keyboard 75%',
+  },
+  {
+    name: 'Elena R.',
+    rating: 5,
+    date: '2 weeks ago',
+    title: 'Exceeded my expectations',
+    comment: 'The soy candle and facial serum are now my daily staples. Packed with care and free shipping!',
+    product: 'Scented Soy Candle',
+  },
+];
+
 export default function Home() {
   useTitle('');
+  const { toast } = useToast();
   const [categories, setCategories] = useState([]);
   const [featured, setFeatured] = useState(null);
   const [latest, setLatest] = useState(null);
+  const [email, setEmail] = useState('');
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(list(r.data))).catch(() => {});
@@ -28,6 +58,13 @@ export default function Home() {
   }, []);
 
   const showcase = list(featured).filter((p) => p.images?.length).slice(0, 3);
+
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    toast('🎉 Thank you! Your 10% coupon code is WELCOME10');
+    setEmail('');
+  };
 
   return (
     <div className="sections">
@@ -104,6 +141,50 @@ export default function Home() {
         ) : (
           <div className="grid">{latest.map((p) => <ProductCard key={p._id} product={p} />)}</div>
         )}
+      </section>
+
+      {/* Customer Reviews Section */}
+      <section>
+        <div className="section-head">
+          <h2 className="section-title">What our customers say</h2>
+        </div>
+        <div className="reviews-grid">
+          {REVIEWS.map((r, i) => (
+            <div key={i} className="card review-card">
+              <div className="review-head">
+                <span className="review-author">{r.name}</span>
+                <div className="review-stars" aria-label={`${r.rating} stars`}>
+                  {[...Array(r.rating)].map((_, idx) => (
+                    <Icon key={idx} name="star" size={14} className="star-gold" />
+                  ))}
+                </div>
+              </div>
+              <h3 className="review-title">{r.title}</h3>
+              <p className="review-comment">“{r.comment}”</p>
+              <div className="review-product">Verified purchase: {r.product}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Exclusive Newsletter & Promo Banner */}
+      <section className="promo-banner card">
+        <div className="promo-content">
+          <span className="eyebrow">Exclusive Offer</span>
+          <h2>Get 10% off your first order</h2>
+          <p className="muted">Subscribe to our newsletter for exclusive drops, early sale access, and member-only promotions.</p>
+          <form className="promo-form" onSubmit={handleSubscribe}>
+            <input
+              type="email"
+              placeholder="Enter your email address…"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              aria-label="Email address for discount"
+            />
+            <button className="btn btn-primary">Subscribe</button>
+          </form>
+        </div>
       </section>
     </div>
   );

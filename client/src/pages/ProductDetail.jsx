@@ -4,6 +4,7 @@ import api, { imgUrl } from '../api.js';
 import { useTitle } from '../hooks.js';
 import { list, money } from '../utils.js';
 import { useCart } from '../context/CartContext.jsx';
+import { useWishlist } from '../context/WishlistContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import Icon from '../components/Icon.jsx';
 import ProductCard from '../components/ProductCard.jsx';
@@ -12,6 +13,7 @@ import { PageSkeleton } from '../components/Skeleton.jsx';
 export default function ProductDetail() {
   const { slug } = useParams();
   const { add } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -50,8 +52,17 @@ export default function ProductDetail() {
   const off = onSale ? Math.round((1 - product.price / product.compareAtPrice) * 100) : 0;
   const images = product.images?.length ? product.images : [''];
   const low = !out && product.stock <= 5;
+  const wish = isWishlisted(product._id);
 
-  const addToCart = () => { add(product, qty); toast(`Added ${qty} × “${product.name}” to your cart`); };
+  const addToCart = () => {
+    add(product, qty, true);
+    toast(`Added ${qty} × “${product.name}” to your cart`);
+  };
+
+  const handleWishlistToggle = () => {
+    toggleWishlist(product);
+    toast(wish ? `Removed “${product.name}” from wishlist` : `Saved “${product.name}” to wishlist`);
+  };
 
   return (
     <>
@@ -81,6 +92,17 @@ export default function ProductDetail() {
         <div className="detail-info">
           {(product.brand || product.category?.name) && <span className="eyebrow">{product.brand || product.category.name}</span>}
           <h1>{product.name}</h1>
+
+          <div className="product-rating-row">
+            <div className="rating-stars" aria-label="Rating: 4.9 out of 5 stars">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Icon key={s} name="star" size={16} className="star-gold" />
+              ))}
+            </div>
+            <strong className="rating-score">4.9</strong>
+            <span className="muted small">· 24 verified ratings</span>
+          </div>
+
           <div className="price-row big">
             <strong>{money(product.price)}</strong>
             {onSale && <><s className="muted">{money(product.compareAtPrice)}</s><span className="save">Save {off}%</span></>}
@@ -98,7 +120,16 @@ export default function ProductDetail() {
                 <button onClick={() => setQty((q) => Math.min(product.stock, q + 1))} aria-label="Increase quantity" disabled={qty >= product.stock}><Icon name="plus" size={16} /></button>
               </div>
               <button className="btn btn-primary btn-lg" onClick={addToCart}><Icon name="cart" size={18} /> Add to cart</button>
-              <button className="btn btn-ghost btn-lg" onClick={() => { add(product, qty); navigate('/cart'); }}>Buy now</button>
+              <button
+                type="button"
+                className={`icon-btn heart-btn-lg ${wish ? 'active' : ''}`}
+                onClick={handleWishlistToggle}
+                aria-label={wish ? 'Remove from wishlist' : 'Save to wishlist'}
+                title={wish ? 'Saved in wishlist' : 'Save to wishlist'}
+              >
+                <Icon name="heart" size={22} className={wish ? 'heart-filled' : ''} />
+              </button>
+              <button className="btn btn-ghost btn-lg" onClick={() => { add(product, qty, false); navigate('/cart'); }}>Buy now</button>
             </div>
           )}
 

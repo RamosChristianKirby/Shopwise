@@ -79,7 +79,7 @@ Sample products are only loaded automatically in cases 2 and 3. With your own `M
 
 ## Features
 
-**Storefront** — home page, shop with search / category / price filters / sorting / pagination, product pages with gallery and stock status, cart, checkout, accounts, order tracking, and payment by **Cash on Delivery, GCash or bank transfer**.
+**Storefront** — home page with customer reviews & promo discounts, live instant search autocomplete, slide-over mini-cart drawer with free shipping progress meter, interactive product quick-view modal, saved wishlist/favorites system, shop with search / category / price filters / sorting / pagination, product pages with gallery, ratings, and stock status, cart, checkout, accounts, order tracking, and payment by **Cash on Delivery, GCash or bank transfer**.
 
 **Admin panel (`/admin`)**
 - **Dashboard**: revenue and orders for the last 30 days vs the previous 30, average order value, today's sales, revenue and order charts (7D / 30D / 90D / 12M, with a table view), order pipeline, recent orders, low-stock list

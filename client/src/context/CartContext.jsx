@@ -15,14 +15,18 @@ const load = () => {
 
 export function CartProvider({ children }) {
   const [items, setItems] = useState(load);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     storage.set('cart', JSON.stringify(items));
   }, [items]);
 
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+
   // Cart lines keep a small snapshot of the product for display only.
   // The server re-reads price and stock from the database when an order is placed.
-  const add = useCallback((product, qty = 1) => {
+  const add = useCallback((product, qty = 1, showDrawer = true) => {
     setItems((prev) => {
       const existing = prev.find((i) => i._id === product._id);
       const max = product.stock ?? 99;
@@ -34,6 +38,7 @@ export function CartProvider({ children }) {
         { _id: product._id, slug: product.slug, name: product.name, price: product.price, image: product.images?.[0], stock: max, qty: Math.min(qty, max) },
       ];
     });
+    if (showDrawer) setIsDrawerOpen(true);
   }, []);
 
   const setQty = useCallback((id, qty) => {
@@ -54,8 +59,11 @@ export function CartProvider({ children }) {
       clear,
       count: items.reduce((n, i) => n + i.qty, 0),
       subtotal: items.reduce((s, i) => s + i.price * i.qty, 0),
+      isDrawerOpen,
+      openDrawer,
+      closeDrawer,
     }),
-    [items, add, setQty, remove, clear]
+    [items, add, setQty, remove, clear, isDrawerOpen, openDrawer, closeDrawer]
   );
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
