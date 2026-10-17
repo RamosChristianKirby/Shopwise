@@ -9,7 +9,7 @@
 | **Storefront redesign** | Navy header with promo bar + live countdown, search with trending terms, mega menu per department (subcategory tiles), full-bleed hero, scrolling trust strip, "Shop by department" and per-department subcategory tile grids, deals of the day, bundle builder, brands, reviews, SEO copy, FAQ, rich footer. Light/dark mode kept. |
 | **Cascading filters** | Shop page filters are separate React Query requests, each keyed by the ones above it: Department → Type (subcategory) → Brand → Options (colour/size) → Works with. Plus price ranges, rating, in-stock, on-sale, grid/list view. |
 | **Product pages** | Variants (e.g. Color × Size) with stock and SKU per option, compatibility checker (iPhone / Android / Windows / Mac…), delivery-date estimator by city or province, specs tab, "Pairs well with" bundle, related products. |
-| **AI chatbot** | "Chat with us" assistant on every page. With `ANTHROPIC_API_KEY` it uses Claude with tools that read the live catalogue and orders; without a key a built-in assistant still answers product, budget, shipping, payment, returns and order-tracking questions. |
+| **AI chatbot** | "Chat with us" assistant on every page. With a free **Groq** or **Gemini** API key (or Claude / OpenRouter) it uses an AI model with tools that read the live catalogue and orders; without a key a built-in assistant still answers product, budget, shipping, payment, returns and order-tracking questions. |
 | **Payments** | COD, GCash, bank transfer (unchanged) **plus PayPal** (server-side create + capture). Coupons (`WELCOME10`, `BUNDLE15`) validated on the server. |
 | **PDF invoices** | Download for every order (customer and admin) and for every plan payment. Built in — no PDF library needed. |
 | **SEO** | When Express serves the site it injects per-page title, description, canonical, Open Graph and JSON-LD (Product, BreadcrumbList, WebSite) and serves `sitemap.xml` + `robots.txt` per store. |
@@ -95,7 +95,18 @@ Sample products are only loaded automatically in cases 2 and 3. With your own `M
 
 ## AI assistant
 
-Set `ANTHROPIC_API_KEY` in `server/.env` (optionally `ANTHROPIC_MODEL`, default `claude-haiku-5-5`) and restart. The assistant gets the store's shipping, payment, returns and coupon facts and four tools: `search_products`, `get_product_details`, `list_categories`, `track_order` (order lookups need the order number plus the shopper's login or order email). Without a key — or on the Starter plan — the built-in assistant answers instead, so the chat always works. Rate limit: 20 messages per minute per visitor.
+The assistant works for free. Get a free API key and add it to `server/.env` (or your host's environment variables), then restart:
+
+| Provider | Cost | Where to get a key | Variable | Default model |
+|---|---|---|---|---|
+| **Groq** (recommended) | Free tier, no card | console.groq.com → API Keys | `GROQ_API_KEY` | `openai/gpt-oss-120b` |
+| **Google Gemini** | Free tier, no card | aistudio.google.com → Get API key | `GEMINI_API_KEY` | `gemini-flash-latest` |
+| Claude | Paid (small free credit for new accounts) | console.anthropic.com | `ANTHROPIC_API_KEY` | `claude-haiku-5-5` |
+| OpenRouter | Free `:free` models or paid | openrouter.ai | `OPENROUTER_API_KEY` + `AI_MODEL` | — |
+
+If several keys are set, the first of Groq → Gemini → OpenRouter → Claude is used; set `AI_PROVIDER` to choose, and `AI_MODEL` to change the model. The assistant gets the store's shipping, payment, returns and coupon facts and four tools: `search_products`, `get_product_details`, `list_categories`, `track_order` (order lookups need the order number plus the shopper's login or order email).
+
+Free tiers have per-minute and per-day limits. When one is reached, the built-in assistant answers instead (for a minute before the AI is tried again), so the chat always works. Without a key — or on the Starter plan — the built-in assistant answers too. Rate limit: 20 messages per minute per visitor.
 
 ## PayPal
 
@@ -168,7 +179,7 @@ Admin (`/api/admin/...`): `analytics/summary`, `analytics/sales?days=`, `product
 1. Copy the new files over your project (your `server/.env`, `.data` and `server/uploads` are untouched).
 2. Run `npm start` (or `npm run install:all`) once — it installs the one new client package, `@tanstack/react-query`, and rebuilds. Commit the updated `client/package-lock.json`.
 3. **Hosted API (Render / Vercel):** redeploy the server too. The new storefront calls new endpoints (`/stores/current`, `/products/facets`, `/chat`, …); until the API is redeployed those parts show defaults or errors. The first start migrates the database automatically.
-4. Optional: add `ANTHROPIC_API_KEY` and PayPal keys to the server's environment.
+4. Optional: add a free `GROQ_API_KEY` or `GEMINI_API_KEY` (AI assistant) and PayPal keys to the server's environment.
 
 ## Ideas for later
 

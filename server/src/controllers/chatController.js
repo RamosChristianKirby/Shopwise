@@ -4,7 +4,8 @@ import { hasFeature } from '../config/plans.js';
 
 /**
  * POST /api/chat { messages: [{ role, content }], page? }
- * Claude-powered on Pro/Business stores when ANTHROPIC_API_KEY is set; otherwise the
+ * AI-powered on Pro/Business stores when an AI key is set (free: GROQ_API_KEY or GEMINI_API_KEY;
+ * also ANTHROPIC_API_KEY / OPENROUTER_API_KEY). Otherwise, or when a free quota runs out, the
  * built-in assistant answers (search, shipping, payments, returns, order tracking).
  */
 export const postChat = asyncHandler(async (req, res) => {

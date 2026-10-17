@@ -187,7 +187,7 @@ export default function AdminSettings() {
               {!features.aiChat && (
                 <div className="alert alert-success" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>
                   <Icon name="sparkles" size={18} />
-                  <span>On Starter the chat uses the built-in assistant (product search, shipping, payments, returns and order tracking). <Link to="/admin/billing">Upgrade to Pro</Link> for the Claude-powered AI assistant that understands any question.</span>
+                  <span>On Starter the chat uses the built-in assistant (product search, shipping, payments, returns and order tracking). <Link to="/admin/billing">Upgrade to Pro</Link> for the AI assistant that understands any question.</span>
                 </div>
               )}
               <label className="check"><input type="checkbox" checked={form.settings.chatbotEnabled} onChange={setS('chatbotEnabled')} /> Show the “Chat with us” assistant on the store</label>
