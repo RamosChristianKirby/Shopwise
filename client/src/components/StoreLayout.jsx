@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
@@ -128,6 +128,38 @@ function Footer() {
   );
 }
 
+/** Signed-in account button with a small menu: account, orders, admin, log out. */
+function AccountMenu({ user, isAdmin, onLogout }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const { pathname } = useLocation();
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEscape(open, () => setOpen(false));
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  return (
+    <div className="account-menu" ref={ref}>
+      <button type="button" className="header-account" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Icon name="user" size={22} />
+        <span className="hide-md"><small>Hello, {user.name.split(' ')[0]}</small><strong>My account ▾</strong></span>
+      </button>
+      {open && (
+        <div className="account-pop" role="menu">
+          <div className="account-pop-head"><strong>{user.name}</strong><span>{user.email}</span></div>
+          <Link role="menuitem" to="/account"><Icon name="package" size={16} /> My orders</Link>
+          <Link role="menuitem" to="/account?tab=profile"><Icon name="user" size={16} /> Profile</Link>
+          {isAdmin && <Link role="menuitem" to="/admin"><Icon name="trend" size={16} /> Admin panel</Link>}
+          <button type="button" role="menuitem" className="account-pop-logout" onClick={onLogout}><Icon name="logout" size={16} /> Log out</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StoreLayout() {
   const { user, isAdmin, logout } = useAuth();
   const { count, openDrawer } = useCart();
@@ -142,7 +174,8 @@ export default function StoreLayout() {
   useEscape(menu, () => setMenu(false));
   useEffect(() => { setMenu(false); }, [pathname]);
 
-  const doLogout = () => { logout(); setMenu(false); navigate('/'); };
+  const { toast } = useToast();
+  const doLogout = () => { logout(); setMenu(false); navigate('/'); toast('You’re logged out.'); };
 
   return (
     <div className="store">
@@ -166,10 +199,12 @@ export default function StoreLayout() {
           <LiveSearch />
           <div className="header-actions">
             {user ? (
-              <NavLink to="/account" className="header-account">
-                <Icon name="user" size={22} />
-                <span className="hide-md"><small>Hello, {user.name.split(' ')[0]}</small><strong>My account</strong></span>
-              </NavLink>
+              <>
+                <AccountMenu user={user} isAdmin={isAdmin} onLogout={doLogout} />
+                <button type="button" className="icon-btn header-logout" onClick={doLogout} title="Log out" aria-label="Log out">
+                  <Icon name="logout" size={21} /><span>Log out</span>
+                </button>
+              </>
             ) : (
               <NavLink to="/login" className="header-account">
                 <Icon name="user" size={22} />

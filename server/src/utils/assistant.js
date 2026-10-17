@@ -1,6 +1,8 @@
 // Shopwise AI shopping assistant.
-// With ANTHROPIC_API_KEY set it uses Claude with tools that read the live catalogue and orders;
-// without a key it falls back to a built-in rule-based assistant, so the chat always works.
+// Uses an AI model with tools that read the live catalogue and orders. Free providers work:
+// Groq (GROQ_API_KEY) or Google Gemini (GEMINI_API_KEY); Claude (ANTHROPIC_API_KEY) and
+// OpenRouter (OPENROUTER_API_KEY) are supported too. With no key, or when a free quota runs
+// out, a built-in rule-based assistant answers instead, so the chat always works.
 import Product from '../models/Product.js';
 import Category from '../models/Category.js';
 import Order from '../models/Order.js';
@@ -103,7 +105,7 @@ function storeFacts(store) {
   };
 }
 
-/* ------------------------------ Claude ------------------------------ */
+/* ------------------------------ AI tools ------------------------------ */
 
 const TOOLS = [
   {
@@ -190,25 +192,66 @@ function systemPrompt(ctx) {
   ].filter(Boolean).join('\n');
 }
 
-async function claudeChat(ctx, messages) {
+/* ------------------------------ AI providers ------------------------------ */
+
+// OpenAI-compatible endpoints (Groq, Gemini, OpenRouter) share one client; Claude has its own.
+const PROVIDERS = {
+  groq: { key: 'GROQ_API_KEY', url: 'https://api.groq.com/openai/v1/chat/completions', model: 'openai/gpt-oss-120b', label: 'Groq' },
+  gemini: { key: 'GEMINI_API_KEY', url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-flash-latest', label: 'Gemini' },
+  openrouter: { key: 'OPENROUTER_API_KEY', url: 'https://openrouter.ai/api/v1/chat/completions', model: '', label: 'OpenRouter' },
+  anthropic: { key: 'ANTHROPIC_API_KEY', url: 'https://api.anthropic.com/v1/messages', model: 'claude-haiku-5-5', label: 'Claude' },
+};
+const FREE_FIRST = ['groq', 'gemini', 'openrouter', 'anthropic'];
+
+/** The provider to use: AI_PROVIDER if set (and its key exists), otherwise the first key found. */
+export function aiProvider() {
+  const wanted = String(process.env.AI_PROVIDER || '').toLowerCase().trim();
+  const id = wanted ? (PROVIDERS[wanted] && process.env[PROVIDERS[wanted].key] ? wanted : null) : FREE_FIRST.find((p) => process.env[PROVIDERS[p].key]);
+  if (!id) return null;
+  const p = PROVIDERS[id];
+  const model = process.env.AI_MODEL || (id === 'anthropic' && process.env.ANTHROPIC_MODEL) || p.model;
+  if (!model) return null; // OpenRouter needs AI_MODEL (e.g. a ":free" model)
+  return { id, ...p, model, apiKey: process.env[p.key] };
+}
+
+// Free tiers have per-minute and per-day quotas. After a 429 we skip the AI for a short
+// cool-down so shoppers get instant built-in answers instead of waiting on a refusal.
+let coolUntil = 0;
+const COOL_MS = 60 * 1000;
+
+class QuotaError extends Error {}
+
+async function postJson(url, headers, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(25000) });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 429) throw new QuotaError(data?.error?.message || 'AI quota reached');
+  if (!res.ok) {
+    const e = Array.isArray(data) ? data[0]?.error : data?.error;
+    throw new Error(e?.message || `AI API error ${res.status}`);
+  }
+  return data;
+}
+
+async function callTool(ctx, name, input, shown) {
+  try {
+    return await runTool(ctx, name, input || {}, shown);
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+const ROUNDS = 5;
+const TOOL_RESULT_CHARS = 6000; // keeps requests small enough for free-tier token limits
+const SORRY = 'Sorry, that took too many steps. Could you ask in a simpler way?';
+
+async function claudeChat(ctx, messages, p) {
   const shown = new Map();
   const convo = messages.map((m) => ({ role: m.role, content: m.content }));
-  const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
-  for (let round = 0; round < 5; round += 1) {
+  for (let round = 0; round < ROUNDS; round += 1) {
     // eslint-disable-next-line no-await-in-loop
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ model, max_tokens: 700, system: systemPrompt(ctx), tools: TOOLS, messages: convo }),
+    const data = await postJson(p.url, { 'x-api-key': p.apiKey, 'anthropic-version': '2023-06-01' }, {
+      model: p.model, max_tokens: 700, system: systemPrompt(ctx), tools: TOOLS, messages: convo,
     });
-    // eslint-disable-next-line no-await-in-loop
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error?.message || `Claude API error ${res.status}`);
-
     const toolUses = (data.content || []).filter((b) => b.type === 'tool_use');
     if (data.stop_reason !== 'tool_use' || !toolUses.length) {
       const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
@@ -217,18 +260,60 @@ async function claudeChat(ctx, messages) {
     convo.push({ role: 'assistant', content: data.content });
     const results = [];
     for (const t of toolUses) {
-      let out;
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        out = await runTool(ctx, t.name, t.input || {}, shown);
-      } catch (err) {
-        out = { error: err.message };
-      }
-      results.push({ type: 'tool_result', tool_use_id: t.id, content: JSON.stringify(out).slice(0, 12000) });
+      // eslint-disable-next-line no-await-in-loop
+      const out = await callTool(ctx, t.name, t.input, shown);
+      results.push({ type: 'tool_result', tool_use_id: t.id, content: JSON.stringify(out).slice(0, TOOL_RESULT_CHARS) });
     }
     convo.push({ role: 'user', content: results });
   }
-  return { reply: 'Sorry, that took too many steps. Could you ask in a simpler way?', products: [], source: 'ai' };
+  return { reply: SORRY, products: [], source: 'ai' };
+}
+
+// Tool definitions in OpenAI "function" format (no parameters key when a tool takes none —
+// Gemini rejects an object schema with empty properties).
+const OPENAI_TOOLS = TOOLS.map((t) => ({
+  type: 'function',
+  function: {
+    name: t.name,
+    description: t.description,
+    ...(Object.keys(t.input_schema.properties || {}).length ? { parameters: t.input_schema } : {}),
+  },
+}));
+
+const parseArgs = (s) => {
+  if (!s) return {};
+  if (typeof s === 'object') return s;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return {};
+  }
+};
+
+async function openAIChat(ctx, messages, p) {
+  const shown = new Map();
+  const convo = [{ role: 'system', content: systemPrompt(ctx) }, ...messages.map((m) => ({ role: m.role, content: m.content }))];
+  const headers = { authorization: `Bearer ${p.apiKey}` };
+  if (p.id === 'openrouter') Object.assign(headers, { 'HTTP-Referer': process.env.CLIENT_URL || 'https://shopwise.app', 'X-Title': 'Shopwise' });
+  for (let round = 0; round < ROUNDS; round += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    const data = await postJson(p.url, headers, {
+      model: p.model, max_tokens: 900, temperature: 0.4, tools: OPENAI_TOOLS, tool_choice: 'auto', messages: convo,
+    });
+    const msg = data.choices?.[0]?.message || {};
+    const calls = msg.tool_calls || [];
+    if (!calls.length) {
+      const reply = String(msg.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      return { reply, products: pickShown(reply, shown), source: 'ai' };
+    }
+    convo.push({ role: 'assistant', content: msg.content || '', tool_calls: calls });
+    for (const c of calls) {
+      // eslint-disable-next-line no-await-in-loop
+      const out = await callTool(ctx, c.function?.name, parseArgs(c.function?.arguments), shown);
+      convo.push({ role: 'tool', tool_call_id: c.id, content: JSON.stringify(out).slice(0, TOOL_RESULT_CHARS) });
+    }
+  }
+  return { reply: SORRY, products: [], source: 'ai' };
 }
 
 /** Product cards to show: the ones named in the reply, otherwise the first few looked at. */
@@ -334,12 +419,17 @@ export async function chat(ctx, rawMessages, { allowAI = true } = {}) {
   if (!messages.length || messages[messages.length - 1].role !== 'user') {
     return { reply: 'Ask me anything about our products, shipping or your order.', products: [], source: 'assistant' };
   }
-  if (allowAI && process.env.ANTHROPIC_API_KEY) {
+  const p = allowAI ? aiProvider() : null;
+  if (p && Date.now() >= coolUntil) {
     try {
-      const out = await claudeChat(ctx, messages);
+      // Free tiers count tokens per minute, so send a shorter history to them.
+      const recent = p.id === 'anthropic' ? messages : messages.slice(-8);
+      while (recent.length && recent[0].role !== 'user') recent.shift();
+      const out = p.id === 'anthropic' ? await claudeChat(ctx, recent, p) : await openAIChat(ctx, recent, p);
       if (out.reply) return out;
     } catch (err) {
-      console.warn(`AI chat fell back to the built-in assistant: ${err.message}`);
+      if (err instanceof QuotaError) coolUntil = Date.now() + COOL_MS;
+      console.warn(`AI chat (${p.label}) fell back to the built-in assistant: ${err.message}`);
     }
   }
   return fallbackChat(ctx, messages);

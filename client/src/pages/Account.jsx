@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api, { downloadFile, errMsg, storage, storeSlugs } from '../api.js';
 import { fmtDate, list, money, PAYMENT_LABELS } from '../utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -145,12 +145,21 @@ function Stores() {
 
 export default function Account() {
   useTitle('My account');
-  const { user } = useAuth();
-  const [tab, setTab] = useState('orders');
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(['orders', 'profile', 'stores'].includes(params.get('tab')) ? params.get('tab') : 'orders');
+  useEffect(() => {
+    const t = params.get('tab');
+    if (['orders', 'profile', 'stores'].includes(t)) setTab(t);
+  }, [params]);
+  const doLogout = () => { logout(); navigate('/'); toast('You’re logged out.'); };
   return (
     <>
       <div className="page-head">
         <div><h1 className="page-title">My account</h1><span className="muted small">{user.email}</span></div>
+        <button type="button" className="btn btn-ghost" onClick={doLogout}><Icon name="logout" size={16} /> Log out</button>
       </div>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'orders'} className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}>Orders</button>
