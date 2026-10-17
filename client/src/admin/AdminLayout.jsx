@@ -91,11 +91,6 @@ export default function AdminLayout() {
               <NavLink key={l.to} to={l.to} end={l.end}><Icon name={l.icon} size={18} /> {l.label}</NavLink>
             ))}
           </nav>
-          <div className="sidebar-foot">
-            <a href={storeLink} className="side-link"><Icon name="store" size={16} /> View store <Icon name="external" size={12} /></a>
-            <div className="muted small ellipsis" title={user.email}>{user.email}</div>
-            <button className="side-link" onClick={() => { logout(); navigate('/'); }}><Icon name="logout" size={16} /> Log out</button>
-          </div>
         </aside>
 
         <div className="admin-main">
