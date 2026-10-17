@@ -202,7 +202,6 @@ export default function StoreLayout() {
               <>
                 <AccountMenu user={user} isAdmin={isAdmin} onLogout={doLogout} />
                 <button type="button" className="icon-btn header-logout" onClick={doLogout} title="Log out" aria-label="Log out">
-                  <Icon name="logout" size={21} /><span>Log out</span>
                 </button>
               </>
             ) : (
