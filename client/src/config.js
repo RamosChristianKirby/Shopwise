@@ -27,3 +27,22 @@ export const STORE = {
   currency: str(raw.CURRENCY, 'PHP'),
   locale: str(raw.LOCALE, 'en-PH'),
 };
+
+/**
+ * Multi-store (SaaS) settings.
+ *   STORE_SLUG       pin this website to one store (e.g. 'urban-threads'); empty = the platform's main store
+ *   PLATFORM_DOMAIN  e.g. 'shopwise.ph' — then urban-threads.shopwise.ph opens the "urban-threads" store
+ *   PLATFORM_NAME    the name of the platform itself (shown on the "Sell on …" pages)
+ */
+export const PLATFORM = {
+  name: str(raw.PLATFORM_NAME, 'Shopwise'),
+  domain: str(raw.PLATFORM_DOMAIN).toLowerCase(),
+  storeSlug: str(raw.STORE_SLUG).toLowerCase(),
+};
+
+export const SOCIAL = {
+  facebook: str(raw.FACEBOOK_URL),
+  instagram: str(raw.INSTAGRAM_URL),
+  tiktok: str(raw.TIKTOK_URL),
+  youtube: str(raw.YOUTUBE_URL),
+};

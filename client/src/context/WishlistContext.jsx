@@ -1,12 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { storage } from '../api.js';
+import { storage, storeSlugs } from '../api.js';
+
+// Each store has its own wishlist (multi-store).
+const KEY = () => (storeSlugs.shop ? `wishlist:${storeSlugs.shop}` : 'wishlist');
 
 const WishlistContext = createContext(null);
 export const useWishlist = () => useContext(WishlistContext);
 
 const load = () => {
   try {
-    const parsed = JSON.parse(storage.get('wishlist') || '[]');
+    const parsed = JSON.parse(storage.get(KEY()) || '[]');
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -18,7 +21,7 @@ export function WishlistProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    storage.set('wishlist', JSON.stringify(items));
+    storage.set(KEY(), JSON.stringify(items));
   }, [items]);
 
   const isWishlisted = useCallback((id) => items.some((i) => i._id === id), [items]);
@@ -41,6 +44,7 @@ export function WishlistProvider({ children }) {
           stock: product.stock,
           brand: product.brand,
           category: product.category,
+          hasOptions: (product.variants || []).length > 0 || !!product.hasOptions,
         },
       ];
     });

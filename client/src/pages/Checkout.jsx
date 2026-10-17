@@ -6,8 +6,9 @@ import { list, money } from '../utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import Icon from '../components/Icon.jsx';
+import CouponBox, { useCouponPreview } from '../components/CouponBox.jsx';
 
-const METHOD_ICONS = { cod: 'cash', gcash: 'card', bank: 'store' };
+const METHOD_ICONS = { cod: 'cash', gcash: 'card', bank: 'store', paypal: 'globe' };
 
 export function Steps({ current }) {
   const steps = ['Cart', 'Details & payment', 'Confirmation'];
@@ -26,7 +27,8 @@ export function Steps({ current }) {
 export default function Checkout() {
   useTitle('Checkout');
   const { user } = useAuth();
-  const { items, subtotal, clear } = useCart();
+  const { items, subtotal, clear, coupon: couponCode } = useCart();
+  const coupon = useCouponPreview();
   const navigate = useNavigate();
 
   const [config, setConfig] = useState(null);
@@ -47,6 +49,11 @@ export default function Checkout() {
   useEffect(() => {
     api.get('/config/payment').then((r) => setConfig(r.data)).catch(() => setError('Could not load payment options.'));
   }, []);
+  // Default to the first method the store offers.
+  useEffect(() => {
+    const ids = list(config?.methods).map((m) => m.id);
+    if (ids.length && !ids.includes(method)) setMethod(ids[0]);
+  }, [config]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (items.length === 0) {
     return (
@@ -60,7 +67,8 @@ export default function Checkout() {
 
   const methods = list(config?.methods);
   const rules = config?.shipping || { fee: 100, freeOver: 2000 };
-  const shipping = subtotal >= rules.freeOver ? 0 : rules.fee;
+  const discount = coupon.error ? 0 : coupon.discount;
+  const shipping = subtotal - discount >= rules.freeOver ? 0 : rules.fee;
   const set = (k) => (e) => setAddress({ ...address, [k]: e.target.value });
   const current = methods.find((m) => m.id === method);
 
@@ -70,10 +78,11 @@ export default function Checkout() {
     setBusy(true);
     try {
       const { data } = await api.post('/orders', {
-        items: items.map((i) => ({ product: i._id, qty: i.qty })),
+        items: items.map((i) => ({ product: i._id, variant: i.variant || undefined, qty: i.qty })),
         shippingAddress: address,
         paymentMethod: method,
         paymentReference: reference,
+        couponCode: coupon.error ? '' : couponCode,
         notes,
       });
       clear();
@@ -116,7 +125,7 @@ export default function Checkout() {
               {!config && !error && <div className="skeleton" style={{ height: 52 }} />}
             </div>
             {current && <p className="pay-note"><Icon name="info" size={16} /> <span>{current.instructions}</span></p>}
-            {method !== 'cod' && (
+            {(method === 'gcash' || method === 'bank') && (
               <label>Payment reference number <span className="muted small">(optional — you can add it later)</span>
                 <input value={reference} onChange={(e) => setReference(e.target.value)} maxLength={100} />
               </label>
@@ -131,19 +140,21 @@ export default function Checkout() {
           <h3>Order summary</h3>
           <ul className="sum-items">
             {items.map((i) => (
-              <li key={i._id}>
+              <li key={i.key}>
                 <span className="sum-thumb"><img src={imgUrl(i.image)} alt="" /><em>{i.qty}</em></span>
-                <span className="grow small">{i.name}</span>
+                <span className="grow small">{i.name}{i.variantLabel && <><br /><span className="muted">{i.variantLabel}</span></>}</span>
                 <span className="small">{money(i.price * i.qty)}</span>
               </li>
             ))}
           </ul>
           <hr />
+          <CouponBox />
           <div className="sum-row"><span>Subtotal</span><span>{money(subtotal)}</span></div>
+          {discount > 0 && <div className="sum-row ok"><span>Discount ({couponCode})</span><span>−{money(discount)}</span></div>}
           <div className="sum-row"><span>Shipping</span><span>{shipping === 0 ? <span className="ok">Free</span> : money(shipping)}</span></div>
-          <div className="sum-row total"><span>Total</span><span>{money(subtotal + shipping)}</span></div>
+          <div className="sum-row total"><span>Total</span><span>{money(subtotal - discount + shipping)}</span></div>
           {error && <div className="alert alert-error" role="alert"><Icon name="alert" size={18} /> {error}</div>}
-          <button className="btn btn-primary btn-lg btn-block" disabled={busy || !config}>{busy ? 'Placing order…' : 'Place order'}</button>
+          <button className="btn btn-primary btn-lg btn-block btn-caps" disabled={busy || !config}>{busy ? 'Placing order…' : method === 'paypal' ? 'Continue to PayPal' : 'Place order'}</button>
           <p className="muted small center"><Icon name="lock" size={12} /> Final prices and stock are confirmed when you place your order.</p>
         </aside>
       </form>

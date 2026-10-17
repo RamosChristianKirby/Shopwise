@@ -2,6 +2,7 @@
 // Local development still uses src/server.js (npm start / npm run dev).
 import connectDB from '../src/config/db.js';
 import { createApp } from '../src/app.js';
+import { ensurePlatform } from '../src/platform.js';
 
 const app = createApp();
 app.set('trust proxy', 1); // Vercel sits behind a proxy; needed for rate limiting and req.ip
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ message: 'Server is not configured: set MONGO_URI and JWT_SECRET in Vercel → Settings → Environment Variables.' });
   }
   try {
-    connecting ??= connectDB(process.env.MONGO_URI);
+    connecting ??= connectDB(process.env.MONGO_URI).then(() => ensurePlatform());
     await connecting;
   } catch (err) {
     connecting = null; // try again on the next request

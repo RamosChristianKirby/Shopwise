@@ -36,12 +36,32 @@ export function AuthProvider({ children }) {
   const updateProfile = useCallback(async (payload) => accept((await api.put('/auth/profile', payload)).data), [accept]);
   const logout = useCallback(() => {
     storage.remove('token');
+    storage.remove('adminStore');
     setUser(null);
   }, []);
+  // Re-reads the account (e.g. after opening a new store, so it appears in the store switcher).
+  const refreshUser = useCallback(async () => {
+    const { data } = await api.get('/auth/me');
+    setUser(data.user);
+    return data.user;
+  }, []);
 
+  const stores = user?.stores || [];
   const value = useMemo(
-    () => ({ user, loading, isAdmin: user?.role === 'admin', login, register, updateProfile, logout }),
-    [user, loading, login, register, updateProfile, logout]
+    () => ({
+      user,
+      loading,
+      // Can open /admin: platform admins, and owners/staff of at least one store.
+      isAdmin: user?.role === 'admin' || stores.length > 0,
+      isPlatformAdmin: user?.role === 'admin',
+      stores,
+      login,
+      register,
+      updateProfile,
+      logout,
+      refreshUser,
+    }),
+    [user, stores, loading, login, register, updateProfile, logout, refreshUser]
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

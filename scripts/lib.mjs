@@ -68,7 +68,7 @@ const has = (dir, pkg) => fs.existsSync(path.join(dir, 'node_modules', pkg, 'pac
 export function ensureInstalled({ server = true } = {}) {
   const groups = [
     [SERVER, 'server', ['express', 'mongoose', 'mongodb-memory-server']],
-    [CLIENT, 'client', ['vite', 'react', 'react-router-dom']],
+    [CLIENT, 'client', ['vite', 'react', 'react-router-dom', '@tanstack/react-query']],
   ].filter(([, name]) => server || name !== 'server');
   for (const [dir, name, pkgs] of groups) {
     if (pkgs.every((p) => has(dir, p))) continue;

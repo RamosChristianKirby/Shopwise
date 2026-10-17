@@ -1,6 +1,20 @@
-# Shopwise — MERN e-commerce with admin panel & sales analytics
+# Shopwise 2.0 — multi-store e-commerce platform (SaaS) with an AI shopping assistant
 
-**MongoDB + Express + React (Vite) + Node.** A complete online store: customers browse, filter, add to cart and check out; admins manage products, orders and customers and watch sales on an analytics dashboard.
+**MongoDB + Express + React (Vite) + React Query + Node.** A complete online store — now a platform: shoppers browse a bold, specialty-retail-style storefront (promo bar with countdown, mega menu, department tile grids, deals, bundle builder), filter with cascading facets, pick sizes and colours, check compatibility and delivery dates, chat with an AI assistant, and pay with Cash on Delivery, GCash, bank transfer or PayPal. Every order has a PDF invoice. Anyone can open their own store on the platform and pay for a plan; platform operators run everything from one console.
+
+## What's new in 2.0
+
+| Area | What you get |
+|---|---|
+| **Storefront redesign** | Navy header with promo bar + live countdown, search with trending terms, mega menu per department (subcategory tiles), full-bleed hero, scrolling trust strip, "Shop by department" and per-department subcategory tile grids, deals of the day, bundle builder, brands, reviews, SEO copy, FAQ, rich footer. Light/dark mode kept. |
+| **Cascading filters** | Shop page filters are separate React Query requests, each keyed by the ones above it: Department → Type (subcategory) → Brand → Options (colour/size) → Works with. Plus price ranges, rating, in-stock, on-sale, grid/list view. |
+| **Product pages** | Variants (e.g. Color × Size) with stock and SKU per option, compatibility checker (iPhone / Android / Windows / Mac…), delivery-date estimator by city or province, specs tab, "Pairs well with" bundle, related products. |
+| **AI chatbot** | "Chat with us" assistant on every page. With `ANTHROPIC_API_KEY` it uses Claude with tools that read the live catalogue and orders; without a key a built-in assistant still answers product, budget, shipping, payment, returns and order-tracking questions. |
+| **Payments** | COD, GCash, bank transfer (unchanged) **plus PayPal** (server-side create + capture). Coupons (`WELCOME10`, `BUNDLE15`) validated on the server. |
+| **PDF invoices** | Download for every order (customer and admin) and for every plan payment. Built in — no PDF library needed. |
+| **SEO** | When Express serves the site it injects per-page title, description, canonical, Open Graph and JSON-LD (Product, BreadcrumbList, WebSite) and serves `sitemap.xml` + `robots.txt` per store. |
+| **SaaS / multi-store** | `/sell` landing page + pricing, `/sell/start` to open a store (optionally with sample products), Starter / Pro / Business plans with 14-day trials and limits, store settings (branding, payments, shipping, coupons, assistant, team, custom domain), plan & billing with invoices, and a Platform console for operators (MRR, stores, confirm payments, suspend, set plans). |
+| **Wireframes & workflows** | Low- and high-fidelity wireframes plus workflow diagrams are in the "Shopwise 2.0 Wireframes & Workflows" design canvas. |
 
 ## Run it
 
@@ -70,6 +84,23 @@ Sample products are only loaded automatically in cases 2 and 3. With your own `M
 
 **Easiest way to use MongoDB Atlas:** run `npm run connect`. It reads the connection string (from the `atlas-credentials.env` file Atlas gives you if it is in this folder or your Downloads folder, or you paste it), saves it in `server/.env`, tests the connection, and offers to load the sample catalogue. In Atlas, first add your IP under *Security → Network Access*.
 
+## Multi-store (SaaS)
+
+- The store you had before becomes the platform's **main store** (slug `main`) automatically on first start — products, categories and orders are moved into it, nothing is lost. Your sample products get subcategories, specs and size/colour options so the new menus and filters work straight away.
+- **Platform admins** are accounts whose `role` is `admin` (same as before). They manage the main store and see **Admin → Platform** for every store.
+- **Merchants** are normal accounts: they open a store at **/sell/start** and become its owner. Owners add staff by email in **Store settings → Team**.
+- Shoppers open a store with `?store=<slug>`, `/s/<slug>`, a subdomain (`<slug>.PLATFORM_DOMAIN`) or a custom domain (Business plan). Each store has its own cart, wishlist, catalogue, orders, coupons and payment details.
+- Plans: **Starter** (free, 25 products), **Pro** (₱999/mo: 500 products, AI assistant, PayPal, 3 seats), **Business** (₱2,499/mo: unlimited, custom domain, 10 seats). Change them in `server/src/config/plans.js`.
+- Plan payments: PayPal activates instantly; GCash/bank invoices are confirmed by a platform admin in **Admin → Platform → Payments to confirm**.
+
+## AI assistant
+
+Set `ANTHROPIC_API_KEY` in `server/.env` (optionally `ANTHROPIC_MODEL`, default `claude-haiku-5-5`) and restart. The assistant gets the store's shipping, payment, returns and coupon facts and four tools: `search_products`, `get_product_details`, `list_categories`, `track_order` (order lookups need the order number plus the shopper's login or order email). Without a key — or on the Starter plan — the built-in assistant answers instead, so the chat always works. Rate limit: 20 messages per minute per visitor.
+
+## PayPal
+
+Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_MODE=sandbox` (or `live`) in `server/.env`. PayPal then appears at checkout for the main store and for plan payments. Merchant stores on Pro/Business can add their own PayPal keys in **Store settings → Payments**. The server creates and captures each PayPal order and checks the captured amount before marking anything paid.
+
 ## Before you go live
 
 - Only accounts you promote yourself are admins (see *Making an account an admin*). Put your real GCash / bank details in `server/.env`.
@@ -79,7 +110,7 @@ Sample products are only loaded automatically in cases 2 and 3. With your own `M
 
 ## Features
 
-**Storefront** — home page with customer reviews & promo discounts, live instant search autocomplete, slide-over mini-cart drawer with free shipping progress meter, interactive product quick-view modal, saved wishlist/favorites system, shop with search / category / price filters / sorting / pagination, product pages with gallery, ratings, and stock status, cart, checkout, accounts, order tracking, and payment by **Cash on Delivery, GCash or bank transfer**.
+**Storefront (1.x features, all kept)** — home page with customer reviews & promo discounts, live instant search autocomplete, slide-over mini-cart drawer with free shipping progress meter, interactive product quick-view modal, saved wishlist/favorites system, shop with search / category / price filters / sorting / pagination, product pages with gallery, ratings, and stock status, cart, checkout, accounts, order tracking, and payment by **Cash on Delivery, GCash or bank transfer**.
 
 **Admin panel (`/admin`)**
 - **Dashboard**: revenue and orders for the last 30 days vs the previous 30, average order value, today's sales, revenue and order charts (7D / 30D / 90D / 12M, with a table view), order pipeline, recent orders, low-stock list
@@ -132,6 +163,13 @@ Auth: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`, `PU
 Customer: `POST /api/orders`, `GET /api/orders/mine`, `GET /api/orders/:id`, `PUT /api/orders/:id/cancel`, `PUT /api/orders/:id/payment-reference`
 Admin (`/api/admin/...`): `analytics/summary`, `analytics/sales?days=`, `products` (CRUD), `categories` (CRUD), `orders` (list, `:id/status`, `:id/pay`), `users` (list, update), `upload`
 
+## Upgrading an existing deployment
+
+1. Copy the new files over your project (your `server/.env`, `.data` and `server/uploads` are untouched).
+2. Run `npm start` (or `npm run install:all`) once — it installs the one new client package, `@tanstack/react-query`, and rebuilds. Commit the updated `client/package-lock.json`.
+3. **Hosted API (Render / Vercel):** redeploy the server too. The new storefront calls new endpoints (`/stores/current`, `/products/facets`, `/chat`, …); until the API is redeployed those parts show defaults or errors. The first start migrates the database automatically.
+4. Optional: add `ANTHROPIC_API_KEY` and PayPal keys to the server's environment.
+
 ## Ideas for later
 
-Email notifications, online card payments, product reviews, coupons, product variants (size / colour), password reset, top-products and customer analytics.
+Email notifications, real customer reviews, password reset, Stripe, multi-currency, automated recurring billing.

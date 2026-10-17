@@ -15,9 +15,20 @@ export const storage = {
   },
 };
 
+/**
+ * Which store the API calls are for (multi-store / SaaS):
+ *   shop  — the store this website is showing (set by StoreContext)
+ *   admin — the store being managed in /admin (can differ from the one being browsed)
+ * Sent as the X-Store header; empty means the platform's main store.
+ */
+export const storeSlugs = { shop: '', admin: storage.get('adminStore') || '' };
+
 api.interceptors.request.use((config) => {
   const token = storage.get('token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  const url = config.url || '';
+  const slug = /^\/?admin(\/|$)/.test(url) ? storeSlugs.admin || storeSlugs.shop : storeSlugs.shop;
+  if (slug && !config.headers['X-Store']) config.headers['X-Store'] = slug;
   return config;
 });
 
@@ -40,6 +51,19 @@ export const errMsg = (e) => {
   if (e && !e.response && e.request) return 'Cannot reach the server. Check your connection and try again.';
   return e?.message || 'Something went wrong';
 };
+
+/** Downloads a file from the API (e.g. a PDF invoice) with the login token attached. */
+export async function downloadFile(url, filename) {
+  const res = await api.get(url, { responseType: 'blob' });
+  const href = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 4000);
+}
 
 const NO_IMAGE =
   'data:image/svg+xml;utf8,' +

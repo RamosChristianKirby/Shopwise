@@ -40,5 +40,11 @@ export const fmtDateTime = (d) => safeDate(d, { year: 'numeric', month: 'short',
 /** Anything that should be a list but might not be (a different API, an error page…) */
 export const list = (x) => (Array.isArray(x) ? x : []);
 
-export const PAYMENT_LABELS = { cod: 'Cash on Delivery', gcash: 'GCash', bank: 'Bank Transfer' };
+export const PAYMENT_LABELS = { cod: 'Cash on Delivery', gcash: 'GCash', bank: 'Bank Transfer', paypal: 'PayPal' };
+
+/** Percentage off for sale badges (0 when not on sale). */
+export const percentOff = (price, compareAt) => (compareAt > price ? Math.round((1 - price / compareAt) * 100) : 0);
+
+/** "12 products" / "1 product" */
+export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export const STATUSES = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];

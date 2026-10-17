@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import api, { errMsg, imgUrl } from '../api.js';
+import api, { downloadFile, errMsg, imgUrl } from '../api.js';
 import { fmtDateTime, money, PAYMENT_LABELS } from '../utils.js';
 import { useTitle } from '../hooks.js';
 import Icon from '../components/Icon.jsx';
@@ -8,6 +8,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import { PageSkeleton } from '../components/Skeleton.jsx';
 import { Steps } from './Checkout.jsx';
 import { useToast } from '../context/ToastContext.jsx';
+import PayPalButtons from '../components/PayPalButtons.jsx';
 
 const STEPS = ['pending', 'processing', 'shipped', 'delivered'];
 
@@ -43,6 +44,10 @@ export default function OrderDetail() {
     } catch (err) { toast(errMsg(err), 'error'); }
   };
 
+  const invoice = async () => {
+    try { await downloadFile(`/orders/${id}/invoice.pdf`, `invoice-${order.orderNumber}.pdf`); } catch (err) { toast(errMsg(err), 'error'); }
+  };
+
   const cancel = async () => {
     if (!window.confirm('Cancel this order?')) return;
     try {
@@ -61,7 +66,7 @@ export default function OrderDetail() {
             <Icon name="check" size={18} strokeWidth={3} />
             <span>
               <strong>Thank you! Your order has been placed.</strong>{' '}
-              {order.paymentMethod === 'cod' ? 'Please prepare the exact amount for delivery.' : 'Please complete your payment using the details below.'}
+              {order.paymentMethod === 'cod' ? 'Please prepare the exact amount for delivery.' : order.paymentMethod === 'paypal' ? 'Complete your payment with PayPal below.' : 'Please complete your payment using the details below.'}
             </span>
           </div>
         </>
@@ -72,7 +77,10 @@ export default function OrderDetail() {
           <h1 className="page-title">Order {order.orderNumber}</h1>
           <span className="muted small">Placed {fmtDateTime(order.createdAt)}</span>
         </div>
-        <StatusBadge status={order.status} />
+        <div className="btn-row" style={{ alignItems: 'center' }}>
+          <button className="btn btn-ghost btn-sm" onClick={invoice}><Icon name="download" size={15} /> Invoice (PDF)</button>
+          <StatusBadge status={order.status} />
+        </div>
       </div>
 
       {!cancelled && (
@@ -92,12 +100,13 @@ export default function OrderDetail() {
           {order.items.map((i) => (
             <div className="cart-line compact" key={i.product + i.name}>
               <span className="cart-thumb"><img src={imgUrl(i.image)} alt="" /></span>
-              <div className="cart-info"><strong>{i.name}</strong><div className="muted small">{i.qty} × {money(i.price)}</div></div>
+              <div className="cart-info"><strong>{i.name}</strong>{i.variantLabel && <div className="small">{i.variantLabel}</div>}<div className="muted small">{i.qty} × {money(i.price)}</div></div>
               <strong className="line-total">{money(i.qty * i.price)}</strong>
             </div>
           ))}
           <hr />
           <div className="sum-row"><span>Subtotal</span><span>{money(order.itemsPrice)}</span></div>
+          {order.discount > 0 && <div className="sum-row ok"><span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span><span>−{money(order.discount)}</span></div>}
           <div className="sum-row"><span>Shipping</span><span>{order.shippingPrice === 0 ? 'Free' : money(order.shippingPrice)}</span></div>
           <div className="sum-row total"><span>Total</span><span>{money(order.totalPrice)}</span></div>
         </section>
@@ -117,13 +126,22 @@ export default function OrderDetail() {
             <h3>Payment</h3>
             <p><strong>{PAYMENT_LABELS[order.paymentMethod]}</strong> — {order.isPaid ? <span className="ok">Paid</span> : <span className="warn">Not yet paid</span>}</p>
             {!order.isPaid && !cancelled && instructions && <p className="muted small">{instructions}</p>}
-            {order.paymentMethod !== 'cod' && !order.isPaid && !cancelled && (
+            {order.paymentMethod === 'paypal' && !order.isPaid && !cancelled && payment?.paypal && (
+              <PayPalButtons
+                clientId={payment.paypal.clientId}
+                currency={payment.paypal.currency}
+                createUrl={`/orders/${id}/paypal`}
+                captureUrl={`/orders/${id}/paypal/capture`}
+                onPaid={(data) => { setOrder(data); toast('Payment received — thank you!'); }}
+              />
+            )}
+            {(order.paymentMethod === 'gcash' || order.paymentMethod === 'bank') && !order.isPaid && !cancelled && (
               <form className="inline-form" onSubmit={saveRef}>
                 <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Reference number" aria-label="Payment reference" maxLength={100} />
                 <button className="btn btn-primary btn-sm">Save</button>
               </form>
             )}
-            {order.paymentReference && order.paymentMethod !== 'cod' && <p className="muted small">Reference: {order.paymentReference}</p>}
+            {order.paymentReference && order.paymentMethod !== 'cod' && <p className="muted small">{order.paymentMethod === 'paypal' ? 'PayPal capture' : 'Reference'}: {order.paymentReference}</p>}
           </section>
 
           {order.status === 'pending' && !order.isPaid && (

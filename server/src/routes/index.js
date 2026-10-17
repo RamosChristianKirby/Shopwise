@@ -5,18 +5,25 @@ import multer from 'multer';
 import { fileURLToPath } from 'url';
 import rateLimit from 'express-rate-limit';
 
-import { protect, adminOnly, optionalAuth } from '../middleware/auth.js';
+import { protect, optionalAuth } from '../middleware/auth.js';
+import { resolveStore, storeOpen, storeAdmin, storeOwner, platformAdmin } from '../middleware/tenant.js';
 import { register, login, me, updateProfile } from '../controllers/authController.js';
 import {
-  getProducts, adminGetProducts, getProduct, createProduct, updateProduct, deleteProduct,
+  getProducts, adminGetProducts, getProduct, getFacets, createProduct, updateProduct, deleteProduct,
 } from '../controllers/productController.js';
 import {
   getCategories, createCategory, updateCategory, deleteCategory,
 } from '../controllers/categoryController.js';
 import {
-  createOrder, getMyOrders, getOrder, cancelMyOrder, submitPaymentReference,
-  adminGetOrders, adminUpdateStatus, adminMarkPaid,
+  createOrder, getMyOrders, getOrder, getOrderInvoice, cancelMyOrder, submitPaymentReference, trackOrder, validateCoupon,
+  paypalCreate, paypalCapture, adminGetOrders, adminUpdateStatus, adminMarkPaid,
 } from '../controllers/orderController.js';
+import {
+  getCurrentStore, getPlans, getDirectory, checkSlug, createStore, getAdminStore, updateAdminStore, addStaff, removeStaff,
+  billingCheckout, billingReference, billingCancel, billingInvoicePdfRoute, billingPaypalCreate, billingPaypalCapture,
+} from '../controllers/storeController.js';
+import { overview, listStores, updateStore as platformUpdateStore, settleInvoice } from '../controllers/platformController.js';
+import { postChat } from '../controllers/chatController.js';
 import { adminGetUsers, adminUpdateUser } from '../controllers/userController.js';
 import { summary, sales } from '../controllers/analyticsController.js';
 import { getPaymentInfo } from '../config/settings.js';
@@ -51,15 +58,42 @@ const authLimiter = rateLimit({
   message: { message: 'Too many attempts, please try again later' },
 });
 
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'You’re sending messages quickly — please wait a moment.' },
+});
+
 const router = Router();
 
 router.get('/health', (req, res) => res.json({ ok: true }));
-router.get('/config/payment', (req, res) => res.json(getPaymentInfo()));
 
 // Generated product placeholder image, e.g. /api/placeholder/yoga-mat.svg?v=1
 router.get('/placeholder/:name', (req, res) => {
   res.type('image/svg+xml').set('Cache-Control', 'public, max-age=86400').send(placeholderSvg(req.params.name, Number(req.query.v) || 0));
 });
+
+/* Platform (SaaS) — not tied to one store */
+router.get('/plans', getPlans);
+router.get('/stores/directory', getDirectory);
+router.get('/stores/check-slug', checkSlug);
+router.post('/stores', protect, createStore);
+
+const platform = Router();
+platform.use(protect, platformAdmin);
+platform.get('/overview', overview);
+platform.get('/stores', listStores);
+platform.put('/stores/:id', platformUpdateStore);
+platform.put('/stores/:id/invoices/:number', settleInvoice);
+router.use('/platform', platform);
+
+// Everything below is for one store (X-Store header, ?store=, domain, or the default store).
+router.use(resolveStore);
+
+router.get('/stores/current', getCurrentStore);
+router.get('/config/payment', (req, res) => res.json(getPaymentInfo(req.store)));
 
 /* Auth */
 router.post('/auth/register', authLimiter, register);
@@ -68,20 +102,38 @@ router.get('/auth/me', protect, me);
 router.put('/auth/profile', protect, updateProfile);
 
 /* Storefront (public) */
-router.get('/products', getProducts);
-router.get('/products/:idOrSlug', optionalAuth, getProduct);
-router.get('/categories', getCategories);
+router.get('/products', storeOpen, getProducts);
+router.get('/products/facets', storeOpen, getFacets);
+router.get('/products/:idOrSlug', storeOpen, optionalAuth, getProduct);
+router.get('/categories', storeOpen, getCategories);
+router.post('/coupons/validate', storeOpen, validateCoupon);
+router.post('/orders/track', storeOpen, authLimiter, trackOrder);
+router.post('/chat', storeOpen, chatLimiter, optionalAuth, postChat);
 
 /* Customer orders */
-router.post('/orders', protect, createOrder);
+router.post('/orders', storeOpen, protect, createOrder);
 router.get('/orders/mine', protect, getMyOrders);
 router.get('/orders/:id', protect, getOrder);
+router.get('/orders/:id/invoice.pdf', protect, getOrderInvoice);
 router.put('/orders/:id/cancel', protect, cancelMyOrder);
 router.put('/orders/:id/payment-reference', protect, submitPaymentReference);
+router.post('/orders/:id/paypal', protect, paypalCreate);
+router.post('/orders/:id/paypal/capture', protect, paypalCapture);
 
-/* Admin */
+/* Store admin (owner / staff of the X-Store store; platform admins can manage any store) */
 const admin = Router();
-admin.use(protect, adminOnly);
+admin.use(protect, storeAdmin);
+
+admin.get('/store', getAdminStore);
+admin.put('/store', storeOwner, updateAdminStore);
+admin.post('/store/staff', storeOwner, addStaff);
+admin.delete('/store/staff/:userId', storeOwner, removeStaff);
+admin.post('/store/billing/checkout', storeOwner, billingCheckout);
+admin.post('/store/billing/cancel', storeOwner, billingCancel);
+admin.put('/store/billing/invoices/:number', storeOwner, billingReference);
+admin.get('/store/billing/invoices/:number.pdf', billingInvoicePdfRoute);
+admin.post('/store/billing/invoices/:number/paypal', storeOwner, billingPaypalCreate);
+admin.post('/store/billing/invoices/:number/paypal/capture', storeOwner, billingPaypalCapture);
 
 admin.get('/analytics/summary', summary);
 admin.get('/analytics/sales', sales);
@@ -91,6 +143,7 @@ admin.post('/products', createProduct);
 admin.put('/products/:id', updateProduct);
 admin.delete('/products/:id', deleteProduct);
 
+admin.get('/categories', getCategories);
 admin.post('/categories', createCategory);
 admin.put('/categories/:id', updateCategory);
 admin.delete('/categories/:id', deleteCategory);

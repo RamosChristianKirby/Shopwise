@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import api, { errMsg } from '../api.js';
+import api, { downloadFile, errMsg, storage, storeSlugs } from '../api.js';
 import { fmtDate, list, money, PAYMENT_LABELS } from '../utils.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -11,6 +11,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import Spinner from '../components/Spinner.jsx';
 
 function Orders() {
+  const { toast } = useToast();
   const [orders, setOrders] = useState(null);
   useEffect(() => {
     api.get('/orders/mine').then((r) => setOrders(list(r.data))).catch(() => setOrders([]));
@@ -30,7 +31,7 @@ function Orders() {
   return (
     <div className="card table-wrap">
       <table className="rt">
-        <thead><tr><th>Order</th><th>Date</th><th>Payment</th><th>Total</th><th>Status</th></tr></thead>
+        <thead><tr><th>Order</th><th>Date</th><th>Payment</th><th>Total</th><th>Status</th><th /></tr></thead>
         <tbody>
           {orders.map((o) => (
             <tr key={o._id}>
@@ -39,6 +40,11 @@ function Orders() {
               <td data-label="Payment">{PAYMENT_LABELS[o.paymentMethod]} {o.isPaid ? '· paid' : ''}</td>
               <td data-label="Total">{money(o.totalPrice)}</td>
               <td data-label="Status"><StatusBadge status={o.status} /></td>
+              <td className="actions">
+                <button className="btn btn-ghost btn-sm" onClick={() => downloadFile(`/orders/${o._id}/invoice.pdf`, `invoice-${o.orderNumber}.pdf`).catch((e) => toast(errMsg(e), 'error'))}>
+                  <Icon name="download" size={14} /> Invoice
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -96,6 +102,47 @@ function Profile() {
   );
 }
 
+function Stores() {
+  const { stores, isPlatformAdmin } = useAuth();
+  const manage = (slug) => {
+    storage.set('adminStore', slug);
+    storeSlugs.admin = slug;
+  };
+  return (
+    <div className="stack">
+      {stores.length === 0 ? (
+        <div className="empty card">
+          <div className="empty-icon"><Icon name="store" size={28} /></div>
+          <h3>You don’t have a store yet</h3>
+          <p className="muted">Open your own online store on Shopwise — free to start, live in minutes.</p>
+          <Link to="/sell/start" className="btn btn-primary">Open a store</Link>
+        </div>
+      ) : (
+        <div className="card table-wrap">
+          <table className="rt">
+            <thead><tr><th>Store</th><th>Your role</th><th>Plan</th><th /></tr></thead>
+            <tbody>
+              {stores.map((s) => (
+                <tr key={s._id}>
+                  <td data-label="Store" className="cell-main"><strong>{s.name}</strong><div className="muted small">{s.slug}{s.isDefault ? ' · main store' : ''}{s.isActive ? '' : ' · suspended'}</div></td>
+                  <td data-label="Role">{s.role}</td>
+                  <td data-label="Plan"><span className={`plan-badge ${s.plan}`}>{s.plan}</span></td>
+                  <td className="actions">
+                    <Link to="/admin" className="btn btn-primary btn-sm" onClick={() => manage(s.slug)}>Manage</Link>
+                    <a href={`/?store=${s.isDefault ? '' : s.slug}`} className="btn btn-ghost btn-sm">Visit</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {stores.length > 0 && <div><Link to="/sell/start" className="btn btn-ghost"><Icon name="plus" size={16} /> Open another store</Link></div>}
+      {isPlatformAdmin && <p className="muted small">You’re a {`Shopwise`} platform admin — every store is in Admin → Platform.</p>}
+    </div>
+  );
+}
+
 export default function Account() {
   useTitle('My account');
   const { user } = useAuth();
@@ -108,8 +155,9 @@ export default function Account() {
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'orders'} className={tab === 'orders' ? 'active' : ''} onClick={() => setTab('orders')}>Orders</button>
         <button role="tab" aria-selected={tab === 'profile'} className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile</button>
+        <button role="tab" aria-selected={tab === 'stores'} className={tab === 'stores' ? 'active' : ''} onClick={() => setTab('stores')}>My stores</button>
       </div>
-      {tab === 'orders' ? <Orders /> : <Profile />}
+      {tab === 'orders' ? <Orders /> : tab === 'profile' ? <Profile /> : <Stores />}
     </>
   );
 }

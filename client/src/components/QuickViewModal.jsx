@@ -23,6 +23,7 @@ export default function QuickViewModal({ product, onClose }) {
   const images = product.images?.length ? product.images : [''];
   const low = !out && product.stock <= 5;
   const wish = isWishlisted(product._id);
+  const hasOptions = (product.variants || []).length > 0 || product.hasOptions;
 
   const handleAddToCart = () => {
     add(product, qty, true);
@@ -66,11 +67,13 @@ export default function QuickViewModal({ product, onClose }) {
               <span className="eyebrow">{product.brand || product.category?.name}</span>
             )}
             <h2 className="quickview-title">{product.name}</h2>
-            <div className="rating-pill">
-              <span className="star-icon"><Icon name="star" size={14} /></span>
-              <strong>4.9</strong>
-              <span className="muted small">(24 verified reviews)</span>
-            </div>
+            {product.numReviews > 0 && (
+              <div className="rating-pill">
+                <span className="star-icon"><Icon name="star" size={14} /></span>
+                <strong>{Number(product.rating).toFixed(1)}</strong>
+                <span className="muted small">({product.numReviews} ratings)</span>
+              </div>
+            )}
           </div>
 
           <div className="price-row big">
@@ -92,7 +95,13 @@ export default function QuickViewModal({ product, onClose }) {
             <p className="desc quickview-desc">{product.description}</p>
           )}
 
-          {!out && (
+          {!out && hasOptions && (
+            <Link to={`/product/${product.slug}`} className="btn btn-primary" onClick={onClose}>
+              <Icon name="sliders" size={18} /> Choose {(product.optionNames || []).join(' & ').toLowerCase() || 'options'}
+            </Link>
+          )}
+
+          {!out && !hasOptions && (
             <div className="buy-row">
               <div className="qty" role="group" aria-label="Quantity">
                 <button

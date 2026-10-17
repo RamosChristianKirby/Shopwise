@@ -3,13 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import api, { imgUrl } from '../api.js';
 import { money } from '../utils.js';
 import Icon from './Icon.jsx';
+import { useCategories } from '../queries.js';
 
-export default function LiveSearch({ id = 'nav-search', placeholder = 'Search products…', onSelect }) {
+export default function LiveSearch({ id = 'nav-search', placeholder = 'Search products, brands and more…', onSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  const [focused, setFocused] = useState(false);
+  const { data: categories = [] } = useCategories();
+  // "Trending searches" shown when the box is focused and empty: the store's busiest subcategories.
+  const trending = categories
+    .flatMap((c) => (c.subcategories || []).map((s) => s))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 7)
+    .map((s) => s.name);
 
   const containerRef = useRef(null);
   const inputRef = useRef(null);
@@ -48,6 +58,7 @@ export default function LiveSearch({ id = 'nav-search', placeholder = 'Search pr
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
+        setFocused(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -82,6 +93,7 @@ export default function LiveSearch({ id = 'nav-search', placeholder = 'Search pr
 
   const selectProduct = (product) => {
     setOpen(false);
+    setFocused(false);
     setQuery('');
     if (onSelect) onSelect();
     navigate(`/product/${product.slug}`);
@@ -92,6 +104,7 @@ export default function LiveSearch({ id = 'nav-search', placeholder = 'Search pr
     const trimmed = query.trim();
     if (!trimmed) return;
     setOpen(false);
+    setFocused(false);
     if (onSelect) onSelect();
     navigate(`/shop?q=${encodeURIComponent(trimmed)}`);
   };
@@ -116,6 +129,7 @@ export default function LiveSearch({ id = 'nav-search', placeholder = 'Search pr
             setSelectedIndex(-1);
           }}
           onFocus={() => {
+            setFocused(true);
             if (query.trim().length >= 2 && results.length > 0) setOpen(true);
           }}
           onKeyDown={handleKeyDown}
@@ -136,6 +150,27 @@ export default function LiveSearch({ id = 'nav-search', placeholder = 'Search pr
           </button>
         )}
       </form>
+
+      {focused && !query.trim() && trending.length > 0 && (
+        <div className="live-search-dropdown" role="listbox" aria-label="Trending searches">
+          <div className="trending">
+            <span className="trending-label">Trending searches</span>
+            {trending.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => {
+                  setFocused(false);
+                  if (onSelect) onSelect();
+                  navigate(`/shop?q=${encodeURIComponent(t)}`);
+                }}
+              >
+                <Icon name="trend" size={12} /> {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {open && query.trim().length >= 2 && (
         <div className="live-search-dropdown" role="listbox">

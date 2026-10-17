@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import connectDB from './config/db.js';
 import Category from './models/Category.js';
 import Product from './models/Product.js';
+import { ensurePlatform } from './platform.js';
 
 export const NEW_PRODUCTS = [
   // Electronics
@@ -111,9 +112,10 @@ export const NEW_PRODUCT_IMAGES = {
 
 async function run() {
   await connectDB();
+  const store = await ensurePlatform(); // products are added to the platform's default store
 
   // Find all categories
-  const categories = await Category.find();
+  const categories = await Category.find({ store: store._id });
   const catMap = {};
   for (const c of categories) catMap[c.name] = c._id;
 
@@ -128,10 +130,11 @@ async function run() {
     }
 
     const images = NEW_PRODUCT_IMAGES[name] || [];
-    const existing = await Product.findOne({ name });
+    const existing = await Product.findOne({ store: store._id, name });
 
     if (!existing) {
       await Product.create({
+        store: store._id,
         name,
         price,
         compareAtPrice,
@@ -159,7 +162,7 @@ async function run() {
     }
   }
 
-  const total = await Product.countDocuments();
+  const total = await Product.countDocuments({ store: store._id });
   console.log(`\nDone! Added ${added} new products, updated ${updated}. Store now has ${total} total products.`);
 }
 

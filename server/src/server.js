@@ -2,6 +2,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import connectDB from './config/db.js';
 import { createApp } from './app.js';
+import { ensurePlatform } from './platform.js';
 
 if (!process.env.JWT_SECRET) {
   console.error('JWT_SECRET is not set. Run "npm start" from the project folder (it creates server/.env for you), or copy server/.env.example to server/.env and edit it.');
@@ -12,6 +13,7 @@ const PORT = Number(process.env.PORT) || 5000;
 
 try {
   await connectDB();
+  await ensurePlatform(); // creates the default store and upgrades older single-store data
 } catch (err) {
   console.error(`\n${err.message}\n`);
   process.exit(1);

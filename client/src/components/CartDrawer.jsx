@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
-import api, { imgUrl } from '../api.js';
+import { useStore } from '../context/StoreContext.jsx';
+import { imgUrl } from '../api.js';
 import { money } from '../utils.js';
 import { useEscape, useScrollLock } from '../hooks.js';
 import Icon from './Icon.jsx';
@@ -9,16 +9,11 @@ import Icon from './Icon.jsx';
 export default function CartDrawer() {
   const { items, isDrawerOpen, closeDrawer, setQty, remove, subtotal, count } = useCart();
   const navigate = useNavigate();
-  const [rules, setRules] = useState({ fee: 100, freeOver: 2000 });
+  const { store } = useStore();
+  const rules = store.shipping || { fee: 100, freeOver: 2000 };
 
   useScrollLock(isDrawerOpen);
   useEscape(isDrawerOpen, closeDrawer);
-
-  useEffect(() => {
-    api.get('/config/payment').then((r) => {
-      if (r.data?.shipping) setRules(r.data.shipping);
-    }).catch(() => {});
-  }, []);
 
   if (!isDrawerOpen) return null;
 
@@ -84,7 +79,7 @@ export default function CartDrawer() {
           <>
             <div className="cart-drawer-items scroll-y">
               {items.map((item) => (
-                <div className="cart-drawer-line" key={item._id}>
+                <div className="cart-drawer-line" key={item.key}>
                   <Link
                     to={`/product/${item.slug}`}
                     className="cart-thumb"
@@ -100,11 +95,12 @@ export default function CartDrawer() {
                     >
                       {item.name}
                     </Link>
+                    {item.variantLabel && <div className="muted small">{item.variantLabel}</div>}
                     <div className="cart-drawer-price">{money(item.price)}</div>
                     <div className="cart-drawer-actions">
                       <div className="qty compact" role="group" aria-label="Quantity">
                         <button
-                          onClick={() => setQty(item._id, item.qty - 1)}
+                          onClick={() => setQty(item.key, item.qty - 1)}
                           disabled={item.qty <= 1}
                           aria-label="Decrease quantity"
                         >
@@ -112,7 +108,7 @@ export default function CartDrawer() {
                         </button>
                         <span>{item.qty}</span>
                         <button
-                          onClick={() => setQty(item._id, item.qty + 1)}
+                          onClick={() => setQty(item.key, item.qty + 1)}
                           disabled={item.qty >= item.stock}
                           aria-label="Increase quantity"
                         >
@@ -121,7 +117,7 @@ export default function CartDrawer() {
                       </div>
                       <button
                         className="link-btn danger small"
-                        onClick={() => remove(item._id)}
+                        onClick={() => remove(item.key)}
                         aria-label={`Remove ${item.name}`}
                       >
                         <Icon name="trash" size={14} />

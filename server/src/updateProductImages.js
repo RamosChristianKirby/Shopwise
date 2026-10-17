@@ -2,6 +2,7 @@ import 'dotenv/config';
 import mongoose from 'mongoose';
 import connectDB from './config/db.js';
 import Product from './models/Product.js';
+import { ensurePlatform } from './platform.js';
 
 export const PRODUCT_IMAGES = {
   'Wireless Noise-Cancelling Headphones': [
@@ -72,9 +73,10 @@ export const PRODUCT_IMAGES = {
 
 async function run() {
   await connectDB();
+  const store = await ensurePlatform();
   let count = 0;
   for (const [name, images] of Object.entries(PRODUCT_IMAGES)) {
-    const res = await Product.updateMany({ name }, { $set: { images } });
+    const res = await Product.updateMany({ store: store._id, name }, { $set: { images } });
     if (res.matchedCount > 0) count += res.matchedCount;
   }
   console.log(`Updated images for ${count} product(s) in the database.`);

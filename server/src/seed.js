@@ -5,6 +5,8 @@ import User from './models/User.js';
 import Category from './models/Category.js';
 import Product from './models/Product.js';
 import Order from './models/Order.js';
+import { ensurePlatform } from './platform.js';
+import { detailFields } from './sampleCatalog.js';
 
 // Real product photography (Unsplash CDN) with dynamic SVG placeholder fallback
 const PRODUCT_IMAGES = {
@@ -219,17 +221,20 @@ async function removeLegacyDemoAccounts() {
   console.log(`Removed ${ids.length} old demo account${ids.length === 1 ? '' : 's'} that still used the published sample password (and their sample orders).`);
 }
 
-// Accounts are never touched here: the store's catalogue (categories, products) and orders are wiped, user accounts stay.
-async function destroy() {
-  await Promise.all([Category.deleteMany(), Product.deleteMany(), Order.deleteMany()]);
+// Accounts and other merchants' stores are never touched here: only the default store's
+// catalogue (categories, products) and orders are wiped.
+async function destroy(store) {
+  const mine = { store: store._id };
+  await Promise.all([Category.deleteMany(mine), Product.deleteMany(mine), Order.deleteMany(mine)]);
 }
 
 async function run() {
   await connectDB();
+  const store = await ensurePlatform();
   await removeLegacyDemoAccounts();
 
   const force = process.argv.includes('--force');
-  if (!force && (await Product.estimatedDocumentCount()) + (await Category.estimatedDocumentCount()) > 0) {
+  if (!force && (await Product.countDocuments({ store: store._id })) + (await Category.countDocuments({ store: store._id })) > 0) {
     // --if-empty is used by "npm start": stay quiet when the shop already has data
     if (!process.argv.includes('--if-empty')) {
       console.log('\nThe shop already has products, so nothing was changed.');
@@ -237,28 +242,34 @@ async function run() {
     }
     return;
   }
-  await destroy();
+  await destroy(store);
   if (process.argv.includes('--destroy')) {
     console.log('Products, categories and orders cleared (user accounts were kept).');
     return;
   }
 
   const cats = {};
-  for (const [name, description] of CATEGORIES) cats[name] = await Category.create({ name, description });
+  let order = 0;
+  for (const [name, description] of CATEGORIES) {
+    order += 1;
+    cats[name] = await Category.create({ store: store._id, name, description, sortOrder: order });
+  }
 
   let count = 0;
   for (const [name, cat, price, compareAtPrice, stock, isFeatured, brand, description] of PRODUCTS) {
     // create() one at a time so the slug hook can check uniqueness
     // eslint-disable-next-line no-await-in-loop
     await Product.create({
+      store: store._id,
       name, price, compareAtPrice, stock, isFeatured, brand, description,
       category: cats[cat]._id,
       images: PRODUCT_IMAGES[name] || [img(name), img(name, 1)],
+      ...detailFields(name, stock),
     });
     count += 1;
   }
 
-  console.log('\nSeed complete.');
+  console.log(`\nSeed complete (store: ${store.name}).`);
   console.log(`  ${CATEGORIES.length} categories and ${count} sample products loaded. No user accounts were created.`);
   console.log('  Register on the website to create an account (always a customer).\n');
 }

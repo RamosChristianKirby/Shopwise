@@ -12,8 +12,8 @@ const SALES = { status: { $ne: 'cancelled' } };
 const dayKey = (date) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 
-async function totals(from, to) {
-  const match = { ...SALES, createdAt: { $gte: from, $lt: to } };
+async function totals(store, from, to) {
+  const match = { ...SALES, store, createdAt: { $gte: from, $lt: to } };
   const [[row], orders] = await Promise.all([
     Order.aggregate([{ $match: match }, { $group: { _id: null, revenue: { $sum: '$totalPrice' } } }]),
     Order.countDocuments(match),
@@ -46,16 +46,24 @@ export const summary = asyncHandler(async (req, res) => {
   const prev30 = new Date(now - 60 * DAY);
   const startOfToday = startOfTodayInTZ(now);
 
-  const [allTime, cur, prev, statusRows, customers, products, lowStock, recentOrders, today] = await Promise.all([
-    totals(new Date(0), new Date(now.getTime() + DAY)),
-    totals(last30, now),
-    totals(prev30, last30),
-    Order.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
-    User.countDocuments({ role: 'customer' }),
-    Product.countDocuments({ isActive: true }),
-    Product.find({ isActive: true, stock: { $lte: 5 } }).select('name stock images').sort({ stock: 1 }).limit(6),
-    Order.find().sort({ createdAt: -1 }).limit(6).populate('user', 'name'),
-    totals(startOfToday, new Date(now.getTime() + DAY)),
+  const store = req.store._id;
+  const [allTime, cur, prev, statusRows, customers, products, lowStock, recentOrders, today, topProducts] = await Promise.all([
+    totals(store, new Date(0), new Date(now.getTime() + DAY)),
+    totals(store, last30, now),
+    totals(store, prev30, last30),
+    Order.aggregate([{ $match: { store } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+    req.store.isDefault ? User.countDocuments({ role: 'customer' }) : Order.distinct('user', { store }).then((u) => u.length),
+    Product.countDocuments({ store, isActive: true }),
+    Product.find({ store, isActive: true, stock: { $lte: 5 } }).select('name stock images').sort({ stock: 1 }).limit(6),
+    Order.find({ store }).sort({ createdAt: -1 }).limit(6).populate('user', 'name'),
+    totals(store, startOfToday, new Date(now.getTime() + DAY)),
+    Order.aggregate([
+      { $match: { ...SALES, store, createdAt: { $gte: last30 } } },
+      { $unwind: '$items' },
+      { $group: { _id: '$items.product', name: { $first: '$items.name' }, image: { $first: '$items.image' }, units: { $sum: '$items.qty' }, revenue: { $sum: { $multiply: ['$items.qty', '$items.price'] } } } },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 },
+    ]),
   ]);
 
   const statusCounts = Object.fromEntries(ORDER_STATUSES.map((s) => [s, 0]));
@@ -75,6 +83,7 @@ export const summary = asyncHandler(async (req, res) => {
     products,
     lowStock,
     recentOrders,
+    topProducts,
   });
 });
 
@@ -91,7 +100,7 @@ export const sales = asyncHandler(async (req, res) => {
 
   // Bucket in JS so the timezone handling lives in one place (dayKey) and the
   // query stays a plain indexed find; the range is capped at 730 days.
-  const orders = await Order.find({ ...SALES, createdAt: { $gte: from } }).select('createdAt totalPrice').lean();
+  const orders = await Order.find({ ...SALES, store: req.store._id, createdAt: { $gte: from } }).select('createdAt totalPrice').lean();
   const map = new Map();
   for (const o of orders) {
     const full = dayKey(o.createdAt);

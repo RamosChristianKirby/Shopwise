@@ -29,6 +29,7 @@ export default function AdminCustomers() {
   return (
     <>
       <div className="page-head"><div><h1 className="page-title">Customers</h1><span className="muted small">{data ? `${data.total} accounts` : ''}</span></div></div>
+      {data && !data.canManageAccounts && <p className="muted small" style={{ margin: 0 }}>Customers who have ordered from this store. Add team members in Store settings → Team.</p>}
       <div className="toolbar">
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); setPage(1); setQ(search.trim()); }}>
           <input placeholder="Search name or email…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search customers" />
@@ -47,10 +48,10 @@ export default function AdminCustomers() {
                   <td data-label="Joined">{fmtDate(u.createdAt)}</td>
                   <td className="num" data-label="Orders">{u.orders}</td>
                   <td className="num" data-label="Spent">{money(u.spent)}</td>
-                  <td data-label="Role">{u.role === 'admin' ? <span className="pill">Admin</span> : 'Customer'}</td>
+                  <td data-label="Role">{u.role === 'admin' ? <span className="pill">Platform admin</span> : u.storeRole ? <span className="pill">{u.storeRole === 'owner' ? 'Store owner' : 'Staff'}</span> : 'Customer'}</td>
                   <td data-label="Status">{u.isActive ? <span className="ok">Active</span> : <span className="warn">Disabled</span>}</td>
                   <td className="actions">
-                    {u._id !== me._id && (
+                    {u._id !== me._id && data.canManageAccounts && (
                       <>
                         <button className="btn btn-ghost btn-sm" onClick={() => patch(u, { isActive: !u.isActive }, u.isActive ? `Disable ${u.name}? They won’t be able to log in.` : '')}>
                           {u.isActive ? 'Disable' : 'Enable'}

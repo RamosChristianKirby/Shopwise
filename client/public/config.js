@@ -27,7 +27,23 @@ window.__APP_CONFIG__ = {
 
   STORE_NAME: 'Shopwise',
   TAGLINE: 'Everyday essentials, delivered to your door.',
-  ANNOUNCEMENT: 'Free shipping on orders over ₱2,000  ·  Pay with Cash on Delivery, GCash or bank transfer',
+  // ANNOUNCEMENT is now set per store in Admin → Store settings (empty = coupon + countdown bar)
+  ANNOUNCEMENT: '',
   CURRENCY: 'PHP',
   LOCALE: 'en-PH',
+
+  // --- Multi-store (SaaS) -------------------------------------------------
+  // PLATFORM_NAME    shown on "Sell on …" pages
+  // STORE_SLUG       pin this website to one merchant store, e.g. 'urban-threads' ('' = main store;
+  //                  visitors can also open any store with ?store=<slug> or /s/<slug>)
+  // PLATFORM_DOMAIN  e.g. 'shopwise.ph' → urban-threads.shopwise.ph opens that store
+  PLATFORM_NAME: 'Shopwise',
+  STORE_SLUG: '',
+  PLATFORM_DOMAIN: '',
+
+  // Social links in the footer (leave '' to hide)
+  FACEBOOK_URL: '',
+  INSTAGRAM_URL: '',
+  TIKTOK_URL: '',
+  YOUTUBE_URL: '',
 };

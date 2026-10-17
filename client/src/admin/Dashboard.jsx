@@ -234,6 +234,22 @@ export default function Dashboard() {
           )}
         </section>
       </div>
+
+      {list(summary.topProducts).length > 0 && (
+        <section className="card pad">
+          <div className="chart-head"><h2>Best sellers · last 30 days</h2><Link to="/admin/products" className="muted small">Products →</Link></div>
+          <ul className="plain-list">
+            {list(summary.topProducts).map((p, i) => (
+              <li key={p._id}>
+                <span className="num-badge">{i + 1}</span>
+                <img src={imgUrl(p.image)} alt="" className="thumb" />
+                <span className="grow">{p.name}<span className="muted small"> · {p.units} sold</span></span>
+                <strong>{money(p.revenue)}</strong>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }

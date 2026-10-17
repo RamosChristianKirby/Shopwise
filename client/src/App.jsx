@@ -17,6 +17,9 @@ import Account from './pages/Account.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import NotFound from './pages/NotFound.jsx';
+import Support from './pages/Support.jsx';
+import Bundle from './pages/Bundle.jsx';
+import Sell, { CreateStore, StoreEntry } from './pages/Sell.jsx';
 
 const AdminLayout = lazy(() => import('./admin/AdminLayout.jsx'));
 const Dashboard = lazy(() => import('./admin/Dashboard.jsx'));
@@ -24,13 +27,18 @@ const AdminProducts = lazy(() => import('./admin/AdminProducts.jsx'));
 const AdminCategories = lazy(() => import('./admin/AdminCategories.jsx'));
 const AdminOrders = lazy(() => import('./admin/AdminOrders.jsx'));
 const AdminCustomers = lazy(() => import('./admin/AdminCustomers.jsx'));
+const AdminSettings = lazy(() => import('./admin/AdminSettings.jsx'));
+const AdminBilling = lazy(() => import('./admin/AdminBilling.jsx'));
+const Platform = lazy(() => import('./admin/Platform.jsx'));
 
-function RequireAuth({ children, admin = false }) {
-  const { user, loading } = useAuth();
+function RequireAuth({ children, admin = false, platform = false }) {
+  const { user, loading, isAdmin, isPlatformAdmin } = useAuth();
   const location = useLocation();
   if (loading) return <Spinner full />;
   if (!user) return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
-  if (admin && user.role !== 'admin') return <Navigate to="/" replace />;
+  // /admin is for platform admins and for owners/staff of a store
+  if (admin && !isAdmin) return <Navigate to="/sell" replace />;
+  if (platform && !isPlatformAdmin) return <Navigate to="/admin" replace />;
   return children;
 }
 
@@ -64,6 +72,11 @@ export default function App() {
           <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/orders/:id" element={<RequireAuth><OrderDetail /></RequireAuth>} />
           <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/bundle" element={<Bundle />} />
+          <Route path="/sell" element={<Sell />} />
+          <Route path="/sell/start" element={<CreateStore />} />
+          <Route path="/s/:slug" element={<StoreEntry />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 
@@ -73,6 +86,9 @@ export default function App() {
           <Route path="categories" element={<S><AdminCategories /></S>} />
           <Route path="orders" element={<S><AdminOrders /></S>} />
           <Route path="customers" element={<S><AdminCustomers /></S>} />
+          <Route path="settings" element={<S><AdminSettings /></S>} />
+          <Route path="billing" element={<S><AdminBilling /></S>} />
+          <Route path="platform" element={<RequireAuth platform><S><Platform /></S></RequireAuth>} />
         </Route>
       </Routes>
     </>

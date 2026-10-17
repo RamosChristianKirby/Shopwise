@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import api, { errMsg, imgUrl } from '../api.js';
+import api, { downloadFile, errMsg, imgUrl } from '../api.js';
+import Icon from '../components/Icon.jsx';
 import { fmtDateTime, fmtDate, list, money, PAYMENT_LABELS, STATUSES } from '../utils.js';
 import { useTitle } from '../hooks.js';
 import { useToast } from '../context/ToastContext.jsx';
@@ -45,6 +46,9 @@ function OrderModal({ id, onClose, onChanged }) {
             <StatusBadge status={order.status} />
             <span className="muted small">Placed {fmtDateTime(order.createdAt)}</span>
             {order.deliveredAt && <span className="muted small">Delivered {fmtDateTime(order.deliveredAt)}</span>}
+            <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }} onClick={() => downloadFile(`/orders/${order._id}/invoice.pdf`, `invoice-${order.orderNumber}.pdf`).catch((e) => toast(errMsg(e), 'error'))}>
+              <Icon name="download" size={14} /> Invoice PDF
+            </button>
           </div>
 
           <div className="two-col even">
@@ -75,10 +79,12 @@ function OrderModal({ id, onClose, onChanged }) {
             {order.items.map((i) => (
               <div className="cart-line compact" key={i.product + i.name}>
                 <span className="cart-thumb"><img src={imgUrl(i.image)} alt="" /></span>
-                <div className="cart-info"><strong>{i.name}</strong><div className="muted small">{i.qty} × {money(i.price)}</div></div>
+                <div className="cart-info"><strong>{i.name}</strong>{i.variantLabel && <div className="small">{i.variantLabel}</div>}<div className="muted small">{i.qty} × {money(i.price)}</div></div>
                 <strong className="line-total">{money(i.qty * i.price)}</strong>
               </div>
             ))}
+            <div className="sum-row muted"><span>Subtotal</span><span>{money(order.itemsPrice)}</span></div>
+            {order.discount > 0 && <div className="sum-row ok"><span>Discount{order.couponCode ? ` (${order.couponCode})` : ''}</span><span>−{money(order.discount)}</span></div>}
             <div className="sum-row muted"><span>Shipping</span><span>{money(order.shippingPrice)}</span></div>
             <div className="sum-row total"><span>Total</span><span>{money(order.totalPrice)}</span></div>
           </div>
@@ -135,7 +141,7 @@ export default function AdminOrders() {
           {STATUSES.map((s) => <button key={s} className={status === s ? 'active' : ''} onClick={() => update({ status: s })}>{s}</button>)}
         </div>
         <form className="inline-form" onSubmit={(e) => { e.preventDefault(); update({ q: search.trim() }); }}>
-          <input placeholder="Order number…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search by order number" />
+          <input placeholder="Order number, name or email…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search by order number" />
           <button className="btn btn-ghost btn-sm">Search</button>
         </form>
       </div>

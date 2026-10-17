@@ -114,3 +114,53 @@ Sales figures count every order that is not `cancelled`.
 ## Only using part of it
 
 If your API covers just the shop (products, categories, orders), the storefront works with those endpoints and you can ignore the `/admin/*` group; the admin panel simply won't load data. If your endpoint names or JSON differ, the places to adapt are the `api.get(...)` / `api.post(...)` calls in `client/src/pages/` (storefront), `client/src/admin/` (admin) and `client/src/context/AuthContext.jsx` (login) — they all use the single client in `client/src/api.js`.
+
+
+---
+
+## 2.0 additions
+
+All store-scoped endpoints read the store from the `X-Store: <slug>` header (the website sends it), `?store=<slug>`, a `<slug>.PLATFORM_DOMAIN` host or a custom domain. Without one they use the main store. An unknown slug returns 404.
+
+### Platform (not store-scoped)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/plans` | `{ plans: [{ id, name, price, tagline, highlights, limits, features }], trialDays, yearlyMonthsCharged, currency }` |
+| GET | `/api/stores/directory` | public list of stores `{ name, slug, isDefault, tagline, productCount, image }` |
+| GET | `/api/stores/check-slug?slug=` | `{ slug, valid, available }` |
+| POST | `/api/stores` (auth) | `{ name, slug?, plan, tagline?, primaryColor?, sampleProducts? }` → `{ store, sampleProducts }` |
+| GET | `/api/platform/overview` (platform admin) | MRR, ARR, stores by plan, GMV, pending invoices |
+| GET | `/api/platform/stores?q=` (platform admin) | every store with owner, plan, 30-day sales, pending invoices |
+| PUT | `/api/platform/stores/:id` (platform admin) | `{ isActive?, plan?, extendDays? }` |
+| PUT | `/api/platform/stores/:id/invoices/:number` (platform admin) | `{ action: 'confirm' \| 'void' }` |
+
+### Storefront
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/stores/current` | public store info: name, slug, branding, plan, features `{ aiChat, paypal, pdfInvoices }`, support, returnsPolicy, shipping, coupons |
+| GET | `/api/products` | new filters: `subcategory`, `brand` (comma lists), `compat`, `opt_<Name>=a,b`, `minRating`, `inStock`, `onSale`; `sort=rating` |
+| GET | `/api/products/facets?level=` | `level` = `categories` \| `subcategories` \| `brands` \| `options` \| `price` \| `all`; same filters as `/products`. Returns `{ categories:[{slug,name,count}], subcategories:[{value,count}], brands:[…], options:[{name, values:[{value,count}]}], compatibility:[…], price:{min,max} }` |
+| GET | `/api/products/:slug` | now `{ product, related, pairs }`; product has `subcategory, tags, specs[{label,value}], compatibility[], optionNames[], variants[{_id, options:{Color,Size}, sku, price?, stock, image}], rating, numReviews` |
+| GET | `/api/categories` | each category adds `image` and `subcategories:[{name,count,image}]` |
+| POST | `/api/coupons/validate` | `{ code, subtotal, itemCount }` → `{ code, percent, discount }` or 400 |
+| POST | `/api/orders` | items accept `variant`; body accepts `couponCode`; `paymentMethod` may be `paypal` |
+| POST | `/api/orders/track` | `{ orderNumber, email }` → status summary |
+| GET | `/api/orders/:id/invoice.pdf` (auth) | PDF (customer or store admin) |
+| POST | `/api/orders/:id/paypal` (auth) | → `{ id }` PayPal order id |
+| POST | `/api/orders/:id/paypal/capture` (auth) | `{ paypalOrderId }` → updated order (paid, processing) |
+| POST | `/api/chat` | `{ messages:[{role,content}], page? }` → `{ reply, products:[…], suggestions?, source:'ai'\|'assistant', ai }` |
+| GET | `/sitemap.xml`, `/robots.txt` | per store (served by Express) |
+
+### Store admin (owner/staff of the X-Store store; platform admins: any store)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/admin/store` | settings, plan, usage, invoices, plans, platform payment details, `canEdit` |
+| PUT | `/api/admin/store` (owner) | `{ name, branding:{…}, settings:{…}, coupons:[…], customDomain }` |
+| POST / DELETE | `/api/admin/store/staff`, `/api/admin/store/staff/:userId` (owner) | team seats per plan |
+| POST | `/api/admin/store/billing/checkout` (owner) | `{ plan, cycle:'monthly'\|'yearly', method:'gcash'\|'bank'\|'paypal', reference? }` → `{ store, invoice }` |
+| PUT | `/api/admin/store/billing/invoices/:number` (owner) | `{ reference }` |
+| POST | `/api/admin/store/billing/invoices/:number/paypal` and `/paypal/capture` (owner) | PayPal for plan invoices |
+| POST | `/api/admin/store/billing/cancel` (owner) | ends a trial / cancels at period end |
+| GET | `/api/admin/store/billing/invoices/:number.pdf` | plan invoice PDF |
+| GET | `/api/admin/categories` | categories of the managed store |
+| GET | `/api/admin/analytics/summary` | adds `topProducts` (last 30 days) |

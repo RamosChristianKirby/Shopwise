@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -11,6 +11,7 @@ export default function WishlistDrawer() {
   const { items, isOpen, closeWishlist, removeFromWishlist, clearWishlist, count } = useWishlist();
   const { add } = useCart();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useScrollLock(isOpen);
   useEscape(isOpen, closeWishlist);
@@ -18,6 +19,12 @@ export default function WishlistDrawer() {
   if (!isOpen) return null;
 
   const handleAddToCart = (product) => {
+    // Products with options (size, colour…) need a choice on their page first.
+    if (product.hasOptions) {
+      closeWishlist();
+      navigate(`/product/${product.slug}`);
+      return;
+    }
     add(product, 1, true);
     toast(`Added “${product.name}” to your cart`);
   };
@@ -86,7 +93,7 @@ export default function WishlistDrawer() {
                           disabled={out}
                           onClick={() => handleAddToCart(item)}
                         >
-                          <Icon name="cart" size={14} /> Add to cart
+                          <Icon name={item.hasOptions ? 'sliders' : 'cart'} size={14} /> {item.hasOptions ? 'Choose options' : 'Add to cart'}
                         </button>
                         <button
                           className="link-btn danger small"

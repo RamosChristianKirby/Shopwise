@@ -13,7 +13,7 @@ export default function AdminCategories() {
   const [form, setForm] = useState({ name: '', description: '' });
   const [editId, setEditId] = useState(null);
 
-  const load = () => api.get('/categories').then((r) => setCats(list(r.data))).catch((e) => toast(errMsg(e), 'error'));
+  const load = () => api.get('/admin/categories').then((r) => setCats(list(r.data))).catch((e) => toast(errMsg(e), 'error'));
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const save = async (e) => {
